@@ -1,0 +1,2495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Points — Scan Matter</title>
+<meta name="description" content="A point-cloud workbench in the browser: open LAS, LAZ, PLY and XYZ scans locally, assemble several of them, measure, clip, and cut them into colour families.">
+<meta property="og:title" content="Points — Scan Matter">
+<meta property="og:description" content="Load · assemble · measure · cut by colour. A point-cloud workbench that runs entirely in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://adpchrgruber.github.io/adp_adv_point_lab/">
+<meta property="og:image" content="https://adpchrgruber.github.io/adp_adv_point_lab/docs/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg fill='%23000'%3E%3Ccircle cx='6' cy='22' r='2.4'/%3E%3Ccircle cx='12' cy='14' r='2.4'/%3E%3Ccircle cx='19' cy='19' r='2.4'/%3E%3Ccircle cx='15' cy='26' r='2.4'/%3E%3C/g%3E%3Ccircle cx='25' cy='8' r='3.4' fill='%23002FA7'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#000000; --muted:#707070; --line:#E3E3E3; --blue:#002FA7;
+    --sans:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;
+    --side:292px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; overflow:hidden; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  button,select{font-family:var(--sans); cursor:pointer;}
+  :focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+  a{color:var(--blue);}
+
+  #stage{position:fixed; top:0; right:0; bottom:0; left:var(--side);}
+  #canvas-wrap{position:absolute; inset:0;}
+  canvas{display:block; touch-action:none;}
+
+  #ui{
+    position:fixed; top:0; left:0; bottom:0; width:var(--side);
+    background:var(--paper); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; z-index:10;
+  }
+  #ui header{padding:26px 22px 18px; border-bottom:1px solid var(--line); position:relative;}
+  .eyebrow{font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
+  .eyebrow .blue{color:var(--blue);}
+  #ui h1{font-weight:700; font-size:27px; line-height:.98; letter-spacing:-.03em; margin:12px 0 8px;}
+  #ui .subtitle{font-size:12px; color:var(--muted); letter-spacing:-.01em;}
+  #ui #btn-sheet{display:none;}
+
+  #panels{flex:1; overflow-y:auto; padding:2px 22px 30px; scrollbar-width:none;}
+  #panels::-webkit-scrollbar{width:0;}
+  .section{padding:20px 0 14px; border-bottom:1px solid var(--line);}
+  .section:last-child{border-bottom:none;}
+  .section > h2{
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.14em; color:var(--muted); margin-bottom:12px;
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .section > h2 .num{color:var(--blue); font-size:10px;}
+  .section.locked > *:not(h2){opacity:.3; pointer-events:none;}
+  .section.locked > h2{color:#b5b5b5;}
+  .section.locked > h2 .num{color:#b5b5b5;}
+  .section h3{font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--ink); margin:12px 0 2px;}
+  .section h3:first-of-type{margin-top:0;}
+  .note{font-size:11px; color:var(--muted); margin:8px 0 0; letter-spacing:.01em;}
+  .note b{color:var(--ink);}
+  .row{display:flex; gap:8px; flex-wrap:wrap;}
+  .row > *{flex:1;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+  .grid4{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;}
+  #ui .grid4 button{padding:11px 2px; letter-spacing:.06em;}
+  .mt{margin-top:10px;}
+
+  #ui button{
+    font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    border:1.5px solid var(--ink); background:var(--paper); color:var(--ink);
+    padding:11px 6px; border-radius:0;
+    transition:background .1s, color .1s, border-color .1s;
+  }
+  #ui button:hover{background:var(--ink); color:var(--paper);}
+  #ui button.active{background:var(--blue); border-color:var(--blue); color:var(--paper);}
+  #ui button.primary{background:var(--blue); border-color:var(--blue); color:var(--paper);}
+  #ui button.primary:hover{background:var(--ink); border-color:var(--ink);}
+  #ui button.chip{
+    border:none; background:none; color:var(--blue); text-align:left; padding:5px 0; font-size:10px;
+  }
+  #ui button.chip:hover{background:none; color:var(--ink);}
+  .chips{display:flex; flex-direction:column; align-items:flex-start;}
+  #ui a.chip{font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; text-decoration:none; padding:5px 0;}
+  #ui a.chip:hover{color:var(--ink);}
+
+  #ui .tabs{display:flex; gap:18px; margin-top:6px; flex-wrap:wrap; row-gap:0;}
+  #ui .tabs .tab{
+    border:none; background:none; padding:10px 0 8px; color:var(--muted);
+    border-bottom:3px solid transparent;
+  }
+  #ui .tabs .tab:hover{background:none; color:var(--ink);}
+  #ui .tabs .tab.active{background:none; color:var(--ink); border-bottom-color:var(--blue);}
+
+  .slider-row{display:flex; align-items:center; gap:10px; margin:0 0 10px;}
+  .slider-row label{
+    flex:0 0 76px; font-size:10px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+  }
+  .slider-row input[type=range]{flex:1; min-width:0; accent-color:var(--blue); height:14px;}
+  .slider-row output{
+    flex:0 0 40px; text-align:right; font-size:11px; font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .sliders{margin-top:14px;}
+  .check-row{
+    display:flex; align-items:center; gap:8px; margin:12px 0 2px;
+    font-size:11px; color:var(--muted); letter-spacing:.01em;
+  }
+  .check-row input{accent-color:var(--blue);}
+  .check-row b{color:var(--ink);}
+
+  .url-row{display:flex; gap:6px; margin-top:8px;}
+  #ui .url-row input{
+    flex:1; min-width:0; font-family:var(--sans); font-size:11px; padding:9px 8px;
+    border:1.5px solid var(--ink); border-radius:0; background:var(--paper); color:var(--ink);
+  }
+  #ui .url-row button{flex:0 0 auto; padding:9px 10px;}
+
+  #scanlist{display:flex; flex-direction:column; margin-top:12px; max-height:220px; overflow-y:auto;}
+  .obj-item{
+    display:flex; align-items:center; gap:10px; padding:9px 0;
+    border-bottom:1px solid #EFEFEF; cursor:pointer;
+    font-size:13px; font-weight:700; letter-spacing:-.01em;
+  }
+  .obj-item .marker{flex:none; width:10px; height:10px; border:1.5px solid var(--ink); background:var(--paper);}
+  .obj-item.selected .marker{background:var(--blue); border-color:var(--blue);}
+  .obj-item.hidden .name{color:#b5b5b5;}
+  .obj-item:hover .name{color:var(--blue);}
+  .obj-item .name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .obj-item .tag{font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  #ui .obj-item .mini{border:none; background:none; color:var(--muted); font-size:14px; line-height:1; padding:2px;}
+  #ui .obj-item .mini:hover{background:none; color:var(--ink);}
+
+  .stats{
+    font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-variant-numeric:tabular-nums; margin-top:12px;
+  }
+  #scaninfo{font-size:11px; color:var(--muted); margin-top:8px; line-height:1.45;}
+  #scaninfo b{color:var(--ink);}
+
+  .shape-grid{display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin-top:8px;}
+  #ui .shape-grid button{padding:8px 0; display:grid; place-items:center;}
+  #ui .shape-grid svg{width:16px; height:16px; fill:currentColor;}
+  #shape-name{color:var(--ink); font-weight:700;}
+  #palette{display:grid; grid-template-columns:repeat(8, 1fr); gap:4px; margin-top:12px;}
+  #ui #palette button.fam{
+    aspect-ratio:1; padding:0; border:1.5px solid var(--paper); background:var(--c);
+    outline:1px solid var(--line);
+  }
+  #ui #palette button.fam:hover{background:var(--c); border-color:var(--ink);}
+  #ui #palette button.fam.off{opacity:.15;}
+  #famstats{margin-top:8px;}
+
+  #hint{
+    position:absolute; left:0; right:0; bottom:0;
+    background:var(--paper); border-top:1px solid var(--line);
+    padding:10px 22px; font-size:11px; color:var(--muted);
+    letter-spacing:.02em; z-index:10; pointer-events:none;
+  }
+  #hint b{color:var(--ink); font-weight:700;}
+  #badge{
+    position:absolute; top:20px; left:20px; z-index:10; pointer-events:none;
+    font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    background:var(--blue); color:var(--paper); padding:7px 12px; display:none;
+  }
+  body.recording #badge{display:block;}
+
+  #stage-controls{position:absolute; top:20px; right:20px; z-index:10; gap:8px; display:flex;}
+  #stage-controls button{
+    height:44px; min-width:44px; padding:0 12px; display:grid; place-items:center; cursor:pointer;
+    border:none; border-radius:0; transition:background .1s, color .1s;
+    font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    background:var(--paper); color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink);
+  }
+  #stage-controls button:hover{background:var(--ink); color:var(--paper);}
+  #stage-controls button.active{background:var(--blue); color:var(--paper); box-shadow:none;}
+  #stage-controls svg{width:16px; height:16px; fill:currentColor;}
+  @media (max-width:720px){ #stage-controls{top:12px; right:12px;} }
+
+  #labels{position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:5;}
+  .mlabel{
+    position:absolute; left:0; top:0; background:var(--blue); color:var(--paper);
+    font-size:10px; font-weight:700; letter-spacing:.06em; padding:4px 7px;
+    white-space:nowrap; font-variant-numeric:tabular-nums;
+  }
+  .mlabel.coords{
+    background:var(--paper); color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink);
+    font-weight:500; letter-spacing:.02em; white-space:pre; line-height:1.4; padding:6px 9px;
+  }
+
+  #progress{position:absolute; top:0; left:0; right:0; height:3px; z-index:11; display:none;}
+  #progress i{display:block; height:100%; width:0; background:var(--blue); transition:width .15s;}
+  #loading{
+    position:absolute; top:20px; left:20px; z-index:11; display:none;
+    background:var(--paper); box-shadow:inset 0 0 0 1.5px var(--ink); padding:7px 12px;
+    font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  }
+  body.loading #progress, body.loading #loading{display:block;}
+  body.dragging #stage::after{
+    content:'Drop scans — LAS · LAZ · PLY · XYZ'; position:absolute; inset:14px; z-index:30;
+    border:2px dashed var(--blue); display:grid; place-items:center; pointer-events:none;
+    font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--blue);
+    background:rgba(255,255,255,.7);
+  }
+
+  #toast{
+    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    background:var(--paper); border:1.5px solid var(--ink); color:var(--ink);
+    padding:9px 18px; font-size:12px; z-index:20; max-width:calc(100% - 32px);
+    opacity:0; transition:opacity .2s; pointer-events:none;
+  }
+  #toast.show{opacity:1;}
+  #toast.err{background:var(--ink); color:var(--paper);}
+
+  @media (max-width:720px){
+    #stage{left:0; bottom:var(--sheet, 46vh);}
+    #ui{top:auto; width:100%; height:var(--sheet, 46vh); border-right:none; border-top:1px solid var(--line);}
+    #ui header{padding:12px 16px 10px;}
+    #ui h1{font-size:18px; margin:4px 0 0;}
+    #ui h1 br{display:none;}
+    #ui .subtitle{display:none;}
+    #ui #btn-sheet{display:block; position:absolute; right:16px; top:14px; padding:8px 10px;}
+    #panels{padding:0 16px 24px;}
+    body.sheet-collapsed{--sheet:64px;}
+    body.sheet-collapsed #panels{display:none;}
+    #hint{display:none;}
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<main id="stage">
+  <div id="canvas-wrap"></div>
+  <div id="labels"></div>
+  <div id="progress"><i></i></div>
+  <div id="loading"></div>
+  <div id="badge">Recording</div>
+  <div id="stage-controls">
+    <button id="stage-turn" title="Turntable (Space)" aria-label="Turntable">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.9.6A3.5 3.5 0 1 0 8 4.5v2L4.5 3.5 8 .5z"/></svg>
+    </button>
+    <button id="stage-frame" title="Frame all (F)">Frame</button>
+  </div>
+  <div id="hint"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</main>
+
+<div id="ui">
+  <header>
+    <div class="eyebrow"><span class="blue">Points</span> — Working Model</div>
+    <h1>Scan <br>Matter</h1>
+    <p class="subtitle">Load scans · assemble · cut them by colour</p>
+    <button id="btn-sheet" aria-label="Collapse panel">Hide</button>
+  </header>
+  <div id="panels">
+
+    <div class="section">
+      <h2>Presets &amp; examples</h2>
+      <h3>Generated scans</h3>
+      <div class="chips">
+        <button class="chip" data-preset="courtyard">Courtyard — brick, plaster, moss · 2.6M</button>
+        <button class="chip" data-preset="vessels">Vessels — three glazed pots · 1.2M</button>
+        <button class="chip" data-preset="terrain">Terrain — valley with forest · 6M</button>
+      </div>
+      <h3>Example files</h3>
+      <div class="chips">
+        <button class="chip" data-example="arch.las">Brick arch (LAS, georeferenced)</button>
+        <button class="chip" data-example="bowl.ply">Raku bowl (PLY)</button>
+        <button class="chip" data-example="boulder.xyz">Boulder (XYZ)</button>
+      </div>
+    </div>
+
+    <div class="section" id="step1">
+      <h2><span class="num">01</span> Load &amp; assemble</h2>
+      <div class="grid2">
+        <button id="btn-load" class="primary" title="LAS, LAZ, PLY, XYZ / TXT / CSV / PTS — read locally, nothing is uploaded">Load scans…</button>
+        <button id="btn-clear">Clear all</button>
+      </div>
+      <div class="url-row">
+        <input type="text" id="url-input" placeholder="…or a URL to a hosted scan" spellcheck="false">
+        <button id="btn-url">Open</button>
+      </div>
+      <div id="scanlist"></div>
+      <div class="tabs">
+        <button id="giz-t" class="tab active" title="key: G">Move</button>
+        <button id="giz-r" class="tab" title="key: R">Rotate</button>
+        <button id="giz-s" class="tab" title="key: X">Scale</button>
+      </div>
+      <div class="grid3 mt">
+        <button id="btn-up" title="swap between Z-up (survey, LAS) and Y-up (many PLY / photogrammetry exports)">Up: Z</button>
+        <button id="btn-ground" title="set the selected scan down on the ground plane">Ground</button>
+        <button id="btn-dup" title="duplicate the selected scan">Copy</button>
+      </div>
+      <div id="scaninfo"></div>
+      <div id="stats" class="stats"></div>
+    </div>
+
+    <div class="section locked" id="step2">
+      <h2><span class="num">02</span> View</h2>
+      <h3>Colour</h3>
+      <div class="tabs" id="color-tabs">
+        <button class="tab active" data-color="rgb">RGB</button>
+        <button class="tab" data-color="height">Height</button>
+        <button class="tab" data-color="intensity">Intensity</button>
+        <button class="tab" data-color="class">Class</button>
+        <button class="tab" data-color="family">Family</button>
+      </div>
+      <div class="tabs" id="ramp-tabs" style="display:none">
+        <button class="tab active" data-ramp="ink">Ink ramp</button>
+        <button class="tab" data-ramp="spectral">Spectral ramp</button>
+      </div>
+      <div class="sliders">
+        <div class="slider-row">
+          <label for="p-size">Size</label>
+          <input type="range" id="p-size" min="0.5" max="6" step="0.1" value="1.5">
+          <output id="o-size">1.5</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-budget" title="maximum number of points drawn at once — the octree fills it with the nearest detail first">Budget</label>
+          <input type="range" id="p-budget" min="0.5" max="12" step="0.5" value="3">
+          <output id="o-budget">3.0M</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-edl" title="eye-dome lighting: shades each point by the depth of its neighbours">EDL</label>
+          <input type="range" id="p-edl" min="0" max="2" step="0.05" value="0.6">
+          <output id="o-edl">0.60</output>
+        </div>
+      </div>
+      <div class="tabs" id="size-tabs">
+        <button class="tab active" data-size="adaptive" title="size follows the octree level — fills gaps at every distance">Adaptive</button>
+        <button class="tab" data-size="fixed" title="every point the same number of pixels">Fixed px</button>
+        <button class="tab" data-bg="paper">Paper</button>
+        <button class="tab" data-bg="night">Night</button>
+      </div>
+      <h3 class="mt">Point shape</h3>
+      <div class="shape-grid" id="shapes"></div>
+      <p class="note">Shape: <span id="shape-name">Circle</span></p>
+      <div class="check-row">
+        <input type="checkbox" id="p-grid" checked>
+        <label for="p-grid"><b>Grid</b> on the ground</label>
+      </div>
+      <h3 class="mt">Views</h3>
+      <div class="grid4 mt">
+        <button data-view="top">Top</button>
+        <button data-view="front">Front</button>
+        <button data-view="side">Side</button>
+        <button data-view="iso">Iso</button>
+      </div>
+      <div class="sliders">
+        <div class="slider-row">
+          <label for="p-turn" title="turntable speed — revolutions per minute">Turn</label>
+          <input type="range" id="p-turn" min="0.5" max="8" step="0.5" value="2">
+          <output id="o-turn">2 rpm</output>
+        </div>
+      </div>
+    </div>
+
+    <div class="section locked" id="step3">
+      <h2><span class="num">03</span> Measure &amp; clip</h2>
+      <div class="grid4">
+        <button id="tool-select" class="active" title="key: V">Select</button>
+        <button id="tool-inspect" title="key: I — source coordinates of a point">Point</button>
+        <button id="tool-distance" title="key: M">Dist.</button>
+        <button id="tool-height" title="key: H">Height</button>
+      </div>
+      <h3 class="mt">Clip box</h3>
+      <div class="tabs" id="clip-tabs">
+        <button class="tab active" data-clip="0">Off</button>
+        <button class="tab" data-clip="1">Keep inside</button>
+        <button class="tab" data-clip="2">Cut inside</button>
+      </div>
+      <div class="grid2 mt">
+        <button id="btn-box-edit" title="move, rotate and scale the clip box with the gizmo">Edit box</button>
+        <button id="btn-box-fit" title="fit the box to the middle of the selected scan (or all scans)">Fit box</button>
+      </div>
+      <div class="grid2 mt">
+        <button id="btn-measure-clear">Clear measures</button>
+        <button id="btn-box-apply" title="make the clipped result a new scan">Clip → scan</button>
+      </div>
+      <p class="note">Coordinates are given in the scan's own system — georeferenced LAS files keep their real-world values.</p>
+    </div>
+
+    <div class="section locked" id="step4">
+      <h2><span class="num">04</span> Colour families</h2>
+      <div class="slider-row">
+        <label for="p-k" title="number of colour families to find">Families</label>
+        <input type="range" id="p-k" min="2" max="16" step="1" value="6">
+        <output id="o-k">6</output>
+      </div>
+      <div class="grid2">
+        <button id="btn-families" class="primary">Find families</button>
+        <button id="btn-fam-all">Show all</button>
+      </div>
+      <div id="palette"></div>
+      <div id="famstats" class="stats"></div>
+      <div class="grid2 mt">
+        <button id="btn-split" title="each visible family of each visible scan becomes its own scan — a fragment you can move">Split into scans</button>
+        <button id="btn-fam-invert" title="swap visible and hidden families">Invert</button>
+      </div>
+      <p class="note">Clusters the colours of every visible scan together (k-means in CIELAB). Click a swatch to hide it, Shift-click to isolate it. <b>Split</b> turns families into fragments you can move and recombine.</p>
+    </div>
+
+    <div class="section">
+      <h2>Output</h2>
+      <div class="grid2">
+        <button id="btn-ply" class="primary" title="all visible points, assembled, with clip box and hidden families applied — Z up, georeferenced">Export PLY</button>
+        <button id="btn-png">Screenshot</button>
+        <button id="btn-rec" title="one full turntable revolution as a video file">Record turn</button>
+        <button id="btn-frame">Frame all</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Credits</h2>
+      <p class="note">Ideas borrowed — code written fresh for this page:</p>
+      <p class="note"><b>Potree</b> (Markus Schütz, TU Wien, BSD-2) — octree level of detail with a point budget, nodes drawn by projected size, adaptive point size, eye-dome lighting pass, clip box and measuring tools.</p>
+      <p class="note"><b>LidarView</b> (xtsense) — one-page viewer that reads files locally, decimation to a point buffer, colour modes, WASD fly keys, “Animate” turntable, <code>?url=</code> loading.</p>
+      <p class="note"><b>Eye-dome lighting</b> — Christian Boucheny, 2009. <b>LAZ</b> — <a href="https://github.com/hobuinc/laz-perf" target="_blank" rel="noopener">laz-perf</a> (Hobu, Apache-2.0), loaded only for .laz files. <b>three.js</b> (MIT).</p>
+    </div>
+
+  </div>
+</div>
+
+<input type="file" id="file-input" accept=".las,.laz,.ply,.xyz,.txt,.csv,.pts,.asc" multiple hidden>
+
+<!-- ======================= worker: parsing, octree, colour families ======================= -->
+<script id="worker-src" type="text/plain">
+'use strict';
+const LAZ_BASE = 'https://cdn.jsdelivr.net/npm/laz-perf@0.0.7/lib/web/';
+const MAX_POINTS = 40e6;      // larger files are decimated on read (as LidarView's point buffer)
+const GRID = 128;             // octree sampling grid per node (Potree uses a similar spacing)
+const LEAF = 20000;           // a node with fewer points keeps them all
+const MIN_SPLIT = 1500;       // remainders smaller than this stay in the node
+const MAX_LEVEL = 18;
+
+let lazPromise = null;
+function lazPerf(){
+  if (!lazPromise){
+    importScripts(LAZ_BASE + 'laz-perf.js');
+    lazPromise = createLazPerf({ locateFile: f => LAZ_BASE + f });
+  }
+  return lazPromise;
+}
+
+let lastPost = 0;
+function prog(id, phase, f){
+  const t = Date.now();
+  if (t - lastPost > 100 || f >= 1){ lastPost = t; postMessage({ type:'progress', id, phase, frac:f }); }
+}
+
+onmessage = async e => {
+  const m = e.data;
+  try {
+    if (m.type === 'file'){
+      const ext = m.name.split('.').pop().toLowerCase();
+      let raw;
+      if (ext === 'las' || ext === 'laz') raw = await parseLAS(m.id, m.buffer);
+      else if (ext === 'ply') raw = parsePLY(m.id, m.buffer);
+      else raw = parseXYZ(m.id, m.buffer, ext);
+      finish(m.id, raw);
+    } else if (m.type === 'preset'){
+      finish(m.id, makePreset(m.id, m.name));
+    } else if (m.type === 'build'){
+      finish(m.id, m.raw);
+    } else if (m.type === 'families'){
+      families(m);
+    }
+  } catch (err){
+    postMessage({ type:'error', id:m.id, message: (err && err.message) || String(err) });
+  }
+};
+
+/* ---------------------------------------------------------------- LAS / LAZ */
+
+async function parseLAS(id, buf){
+  const dv = new DataView(buf);
+  const sig = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
+  if (sig !== 'LASF') throw new Error('Not a LAS/LAZ file');
+  const vMaj = dv.getUint8(24), vMin = dv.getUint8(25);
+  const dataOffset = dv.getUint32(96, true);
+  const fmtByte = dv.getUint8(104);
+  const compressed = (fmtByte & 0xC0) !== 0;
+  let fmt = fmtByte & 0x3f, stride = dv.getUint16(105, true);
+  let n = dv.getUint32(107, true);
+  if (vMaj === 1 && vMin >= 4 && dv.byteLength > 255){
+    const n64 = Number(dv.getBigUint64(247, true));
+    if (n64 > 0) n = n64;
+  }
+  const sx = dv.getFloat64(131, true), sy = dv.getFloat64(139, true), sz = dv.getFloat64(147, true);
+  const ox = dv.getFloat64(155, true), oy = dv.getFloat64(163, true), oz = dv.getFloat64(171, true);
+  const maxX = dv.getFloat64(179, true), minX = dv.getFloat64(187, true);
+  const maxY = dv.getFloat64(195, true), minY = dv.getFloat64(203, true);
+  const maxZ = dv.getFloat64(211, true), minZ = dv.getFloat64(219, true);
+  let cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
+  if (!(maxX >= minX) || !isFinite(cx)){ cx = ox; cy = oy; cz = oz; }
+
+  let view = dv, L = null, laz = null, ptr = 0, filePtr = 0;
+  if (compressed){
+    postMessage({ type:'progress', id, phase:'Loading LAZ decoder', frac:0 });
+    L = await lazPerf();
+    filePtr = L._malloc(buf.byteLength);
+    L.HEAPU8.set(new Uint8Array(buf), filePtr);
+    laz = new L.LASZip();
+    laz.open(filePtr, buf.byteLength);
+    n = laz.getCount(); fmt = laz.getPointFormat(); stride = laz.getPointLength();
+    ptr = L._malloc(stride);
+    view = new DataView(L.HEAPU8.buffer, ptr, stride);
+  }
+
+  const step = Math.max(1, Math.ceil(n / MAX_POINTS));
+  const cap = Math.ceil(n / step);
+  const legacy = fmt < 6;
+  const rgbOff = ({ 2:20, 3:28, 5:28, 7:30, 8:30, 10:30 })[fmt];
+  const pos = new Float32Array(cap * 3), inten = new Uint16Array(cap), cls = new Uint8Array(cap);
+  const rgb16 = rgbOff !== undefined ? new Uint16Array(cap * 3) : null;
+  let j = 0, rgbMax = 0;
+  for (let i = 0; i < n; i++){
+    let b;
+    if (laz){
+      laz.getPoint(ptr);
+      if (view.buffer !== L.HEAPU8.buffer) view = new DataView(L.HEAPU8.buffer, ptr, stride);
+      if (i % step) continue;
+      b = 0;
+    } else {
+      if (i % step) continue;
+      b = dataOffset + i * stride;
+      if (b + stride > buf.byteLength) break;
+    }
+    pos[j*3]   = view.getInt32(b, true) * sx + ox - cx;
+    pos[j*3+1] = view.getInt32(b + 4, true) * sy + oy - cy;
+    pos[j*3+2] = view.getInt32(b + 8, true) * sz + oz - cz;
+    inten[j] = view.getUint16(b + 12, true);
+    cls[j] = legacy ? (view.getUint8(b + 15) & 31) : view.getUint8(b + 16);
+    if (rgb16){
+      const r = view.getUint16(b + rgbOff, true), g = view.getUint16(b + rgbOff + 2, true), bl = view.getUint16(b + rgbOff + 4, true);
+      rgb16[j*3] = r; rgb16[j*3+1] = g; rgb16[j*3+2] = bl;
+      if (r > rgbMax) rgbMax = r; if (g > rgbMax) rgbMax = g; if (bl > rgbMax) rgbMax = bl;
+    }
+    j++;
+    if ((i & 0x3ffff) === 0) prog(id, 'Reading', i / n);
+  }
+  if (laz){ laz.delete(); L._free(ptr); L._free(filePtr); }
+
+  let rgb = null;
+  if (rgb16 && rgbMax > 0){
+    rgb = new Uint8Array(j * 3);
+    const shift = rgbMax > 255 ? 8 : 0;
+    for (let i = 0; i < j * 3; i++) rgb[i] = rgb16[i] >> shift;
+  }
+  let anyInt = false;
+  for (let i = 0; i < j; i += 97) if (inten[i]){ anyInt = true; break; }
+  return {
+    n: j, pos, rgb, intensity: anyInt ? inten : null, cls,
+    offset: [cx, cy, cz], georef: true, upZ: true,
+    info: `${compressed ? 'LAZ' : 'LAS'} ${vMaj}.${vMin} · format ${fmt}` + (step > 1 ? ` · every ${step}th point` : ''),
+  };
+}
+
+/* ---------------------------------------------------------------- PLY */
+
+const PLY_SIZE = { char:1, int8:1, uchar:1, uint8:1, short:2, int16:2, ushort:2, uint16:2,
+  int:4, int32:4, uint:4, uint32:4, float:4, float32:4, double:8, float64:8 };
+const PLY_READ = {
+  char:(d,o)=>d.getInt8(o), int8:(d,o)=>d.getInt8(o), uchar:(d,o)=>d.getUint8(o), uint8:(d,o)=>d.getUint8(o),
+  short:(d,o,l)=>d.getInt16(o,l), int16:(d,o,l)=>d.getInt16(o,l), ushort:(d,o,l)=>d.getUint16(o,l), uint16:(d,o,l)=>d.getUint16(o,l),
+  int:(d,o,l)=>d.getInt32(o,l), int32:(d,o,l)=>d.getInt32(o,l), uint:(d,o,l)=>d.getUint32(o,l), uint32:(d,o,l)=>d.getUint32(o,l),
+  float:(d,o,l)=>d.getFloat32(o,l), float32:(d,o,l)=>d.getFloat32(o,l), double:(d,o,l)=>d.getFloat64(o,l), float64:(d,o,l)=>d.getFloat64(o,l),
+};
+
+function parsePLY(id, buf){
+  const bytes = new Uint8Array(buf);
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, Math.min(bytes.length, 65536)));
+  const k = head.indexOf('end_header');
+  if (k < 0 || !head.startsWith('ply')) throw new Error('Not a PLY file');
+  const dataStart = head.indexOf('\n', k) + 1;
+  let format = 'ascii';
+  const elements = []; let cur = null;
+  for (const line of head.slice(0, k).split(/\r?\n/)){
+    const t = line.trim().split(/\s+/);
+    if (t[0] === 'format') format = t[1];
+    else if (t[0] === 'element'){ cur = { name:t[1], count:+t[2], props:[] }; elements.push(cur); }
+    else if (t[0] === 'property' && cur){
+      if (t[1] === 'list') cur.props.push({ list:true, name:t[4] });
+      else cur.props.push({ type:t[1], name:t[2] });
+    }
+  }
+  const vi = elements.findIndex(e => e.name === 'vertex');
+  if (vi < 0) throw new Error('PLY has no vertex element');
+  const vert = elements[vi], n = vert.count, props = vert.props;
+  if (props.some(p => p.list)) throw new Error('PLY vertex lists are not supported');
+  const find = (...names) => props.findIndex(p => names.includes(p.name.toLowerCase()));
+  const ix = find('x'), iy = find('y'), iz = find('z');
+  if (ix < 0 || iy < 0 || iz < 0) throw new Error('PLY vertices have no x y z');
+  const ir = find('red', 'r', 'diffuse_red'), ig = find('green', 'g', 'diffuse_green'), ib = find('blue', 'b', 'diffuse_blue');
+  const ii = props.findIndex(p => /intensity/i.test(p.name));
+  const ic = props.findIndex(p => /^(scalar_)?class(ification)?$/i.test(p.name));
+  const hasRGB = ir >= 0 && ig >= 0 && ib >= 0;
+  const rgbType = hasRGB ? props[ir].type : 'uchar';
+  const rgbScale = /float|double/.test(rgbType) ? 255 : (PLY_SIZE[rgbType] === 2 ? 1/257 : 1);
+
+  const pos = new Float32Array(n * 3), rgb = hasRGB ? new Uint8Array(n * 3) : null;
+  const rawI = ii >= 0 ? new Float32Array(n) : null;
+  const cls = new Uint8Array(n);
+  let cx = 0, cy = 0, cz = 0;
+
+  if (format === 'ascii'){
+    const text = new TextDecoder().decode(bytes.subarray(dataStart));
+    let p = 0, skip = 0;
+    for (let e = 0; e < vi; e++) skip += elements[e].count;
+    const next = () => { let q = text.indexOf('\n', p); if (q < 0) q = text.length; const s = text.slice(p, q); p = q + 1; return s; };
+    for (let s = 0; s < skip; s++) next();
+    for (let i = 0; i < n; i++){
+      const t = next().trim().split(/\s+/);
+      const x = +t[ix], y = +t[iy], z = +t[iz];
+      if (i === 0){ cx = x; cy = y; cz = z; }
+      pos[i*3] = x - cx; pos[i*3+1] = y - cy; pos[i*3+2] = z - cz;
+      if (rgb){ rgb[i*3] = Math.min(255, +t[ir] * rgbScale); rgb[i*3+1] = Math.min(255, +t[ig] * rgbScale); rgb[i*3+2] = Math.min(255, +t[ib] * rgbScale); }
+      if (rawI) rawI[i] = +t[ii];
+      if (ic >= 0) cls[i] = +t[ic];
+      if ((i & 0xffff) === 0) prog(id, 'Reading', i / n);
+    }
+  } else {
+    const le = format === 'binary_little_endian';
+    const dv = new DataView(buf);
+    let base = dataStart;
+    for (let e = 0; e < vi; e++){
+      if (elements[e].props.some(p => p.list)) throw new Error('PLY: vertex element must come before faces');
+      base += elements[e].count * elements[e].props.reduce((s, p) => s + PLY_SIZE[p.type], 0);
+    }
+    const offs = []; let stride = 0;
+    for (const p of props){ offs.push(stride); stride += PLY_SIZE[p.type]; }
+    const R = i => PLY_READ[props[i].type];
+    const rx = R(ix), ry = R(iy), rz = R(iz);
+    const rr = hasRGB ? R(ir) : null, rg = hasRGB ? R(ig) : null, rb = hasRGB ? R(ib) : null;
+    const ri = ii >= 0 ? R(ii) : null, rc = ic >= 0 ? R(ic) : null;
+    for (let i = 0; i < n; i++){
+      const b = base + i * stride;
+      if (b + stride > buf.byteLength) throw new Error('PLY file is truncated');
+      const x = rx(dv, b + offs[ix], le), y = ry(dv, b + offs[iy], le), z = rz(dv, b + offs[iz], le);
+      if (i === 0){ cx = x; cy = y; cz = z; }
+      pos[i*3] = x - cx; pos[i*3+1] = y - cy; pos[i*3+2] = z - cz;
+      if (rgb){
+        rgb[i*3]   = Math.min(255, rr(dv, b + offs[ir], le) * rgbScale);
+        rgb[i*3+1] = Math.min(255, rg(dv, b + offs[ig], le) * rgbScale);
+        rgb[i*3+2] = Math.min(255, rb(dv, b + offs[ib], le) * rgbScale);
+      }
+      if (ri) rawI[i] = ri(dv, b + offs[ii], le);
+      if (rc) cls[i] = rc(dv, b + offs[ic], le);
+      if ((i & 0x3ffff) === 0) prog(id, 'Reading', i / n);
+    }
+  }
+  return { n, pos, rgb, intensity: rawI ? scaleIntensity(rawI) : null, cls,
+    offset:[cx, cy, cz], georef: Math.max(Math.abs(cx), Math.abs(cy)) > 1e4, upZ:true,
+    info: `PLY · ${format.replace(/_/g, ' ')}` };
+}
+
+function scaleIntensity(f){
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < f.length; i++){ const v = f[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+  const out = new Uint16Array(f.length), s = mx > mn ? 65535 / (mx - mn) : 0;
+  for (let i = 0; i < f.length; i++) out[i] = (f[i] - mn) * s;
+  return out;
+}
+
+/* ---------------------------------------------------------------- XYZ / TXT / CSV / PTS */
+
+function parseXYZ(id, buf, ext){
+  const u8 = new Uint8Array(buf);
+  let lines = 1;
+  for (let i = 0; i < u8.length; i++) if (u8[i] === 10) lines++;
+  const text = new TextDecoder().decode(u8);
+  const SPLIT = /[\s,;]+/;
+  let p = 0;
+  const next = () => {
+    if (p >= text.length) return null;
+    let q = text.indexOf('\n', p); if (q < 0) q = text.length;
+    const s = text.slice(p, q); p = q + 1; return s;
+  };
+  const row = s => { const t = s.trim(); if (!t) return null; const v = t.split(SPLIT).map(Number); return v.length >= 3 && !isNaN(v[0]) && !isNaN(v[1]) && !isNaN(v[2]) ? v : null; };
+
+  const rows = [];
+  for (let s; rows.length < 500 && (s = next()) !== null;){ const v = row(s); if (v) rows.push(v); }
+  if (!rows.length) throw new Error('No "x y z" rows found');
+  const nc = Math.min(...rows.map(r => r.length));
+  const isByte = j => rows.every(r => Number.isInteger(r[j]) && r[j] >= 0 && r[j] <= 255);
+  const isUnit = j => rows.every(r => r[j] >= 0 && r[j] <= 1);
+  const isNormal = j => rows.every(r => Math.abs(r[j]) <= 1.0001);
+  let rgbAt = -1, rgbScale = 1;
+  if (nc >= 6 && isByte(nc-3) && isByte(nc-2) && isByte(nc-1)) rgbAt = nc - 3;
+  for (let j = 3; rgbAt < 0 && j + 2 < nc; j++) if (isByte(j) && isByte(j+1) && isByte(j+2)) rgbAt = j;
+  for (let j = 3; rgbAt < 0 && j + 2 < nc; j++) if (isUnit(j) && isUnit(j+1) && isUnit(j+2)){ rgbAt = j; rgbScale = 255; }
+  let intAt = -1;
+  for (let j = 3; j < nc; j++){
+    if (rgbAt >= 0 && j >= rgbAt && j < rgbAt + 3) continue;
+    if (isNormal(j)) continue;
+    intAt = j; break;
+  }
+  const pos = new Float32Array(lines * 3), rgb = rgbAt >= 0 ? new Uint8Array(lines * 3) : null;
+  const rawI = intAt >= 0 ? new Float32Array(lines) : null;
+  const [cx, cy, cz] = rows[0];
+  p = 0;
+  let n = 0;
+  for (let s; (s = next()) !== null;){
+    const v = row(s);
+    if (!v) continue;
+    pos[n*3] = v[0] - cx; pos[n*3+1] = v[1] - cy; pos[n*3+2] = v[2] - cz;
+    if (rgb){ rgb[n*3] = v[rgbAt] * rgbScale; rgb[n*3+1] = v[rgbAt+1] * rgbScale; rgb[n*3+2] = v[rgbAt+2] * rgbScale; }
+    if (rawI) rawI[n] = v[intAt];
+    n++;
+    if ((n & 0xffff) === 0) prog(id, 'Reading', p / text.length);
+  }
+  return { n, pos, rgb, intensity: rawI ? scaleIntensity(rawI.subarray(0, n)) : null, cls:null,
+    offset:[cx, cy, cz], georef: Math.max(Math.abs(cx), Math.abs(cy)) > 1e4, upZ:true,
+    info: `${ext.toUpperCase()} · ${nc} columns` + (rgb ? ' · RGB' : '') };
+}
+
+/* ---------------------------------------------------------------- finishing: recentre, octree, reorder */
+
+function finish(id, raw){
+  const n = raw.n, pos = raw.pos;
+  if (!n) throw new Error('The file contains no points');
+  const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < n; i++){
+    for (let a = 0; a < 3; a++){
+      const v = pos[i*3+a];
+      if (v < mn[a]) mn[a] = v; if (v > mx[a]) mx[a] = v;
+    }
+  }
+  const c = [(mn[0]+mx[0])/2, (mn[1]+mx[1])/2, (mn[2]+mx[2])/2];
+  for (let i = 0; i < n; i++){ pos[i*3] -= c[0]; pos[i*3+1] -= c[1]; pos[i*3+2] -= c[2]; }
+  const bounds = { min: mn.map((v, a) => v - c[a]), max: mx.map((v, a) => v - c[a]) };
+  const offset = raw.offset.map((v, a) => v + c[a]);
+
+  // fill missing attributes so every scan has the same layout
+  let rgb = raw.rgb, inten = raw.intensity, cls = raw.cls;
+  const hasRGB = !!rgb, hasIntensity = !!inten, hasClass = !!cls && cls.subarray(0, n).some(v => v > 1);
+  if (!inten){
+    inten = new Uint16Array(n);
+    if (rgb) for (let i = 0; i < n; i++) inten[i] = (0.3*rgb[i*3] + 0.59*rgb[i*3+1] + 0.11*rgb[i*3+2]) * 257;
+  }
+  if (!rgb){
+    rgb = new Uint8Array(n * 3);
+    const im = percentile(inten, n, 0.99) || 1;
+    for (let i = 0; i < n; i++){
+      const g = hasIntensity ? 60 + 180 * Math.min(1, Math.sqrt(inten[i] / im)) : 150;
+      rgb[i*3] = rgb[i*3+1] = rgb[i*3+2] = g;
+    }
+  }
+  if (!cls) cls = new Uint8Array(n);
+
+  const { order, nodes } = buildOctree(id, pos, n, bounds);
+  prog(id, 'Sorting', 0.99);
+  const P = new Float32Array(n * 3), RGB = new Uint8Array(n * 3), I = new Uint16Array(n), C = new Uint8Array(n), F = new Uint8Array(n);
+  const fam = raw.family || null;
+  for (let i = 0; i < n; i++){
+    const k = order[i];
+    P[i*3] = pos[k*3]; P[i*3+1] = pos[k*3+1]; P[i*3+2] = pos[k*3+2];
+    RGB[i*3] = rgb[k*3]; RGB[i*3+1] = rgb[k*3+1]; RGB[i*3+2] = rgb[k*3+2];
+    I[i] = inten[k]; C[i] = cls[k];
+    if (fam) F[i] = fam[k];
+  }
+  postMessage({
+    type:'built', id, n, pos:P, rgb:RGB, intensity:I, cls:C, family:F, nodes, bounds, offset, shift:c,
+    georef: !!raw.georef, upZ: raw.upZ !== false, hasRGB, hasIntensity, hasClass,
+    intensityMax: percentile(I, n, 0.99) || 65535, info: raw.info || '',
+  }, [P.buffer, RGB.buffer, I.buffer, C.buffer, F.buffer]);
+}
+
+function percentile(arr, n, q){
+  const m = Math.min(n, 20000), s = new Float64Array(m);
+  for (let i = 0; i < m; i++) s[i] = arr[Math.floor(Math.random() * n)];
+  s.sort();
+  return s[Math.floor(q * (m - 1))];
+}
+
+// Octree in the spirit of Potree's converter: each node keeps one point per cell of a
+// GRID³ sampling grid (taken in random order, so it is an even subsample), the rest
+// fall through to its eight children. Points end up sorted node by node.
+function buildOctree(id, pos, n, bounds){
+  const size = Math.max(bounds.max[0]-bounds.min[0], bounds.max[1]-bounds.min[1], bounds.max[2]-bounds.min[2]) * 1.0001 + 1e-6;
+  const cMin = [0, 1, 2].map(a => (bounds.min[a] + bounds.max[a]) / 2 - size / 2);
+  const idx = new Uint32Array(n);
+  for (let i = 0; i < n; i++) idx[i] = i;
+  for (let i = n - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+  const out = new Uint32Array(n);
+  const stamp = new Uint32Array(GRID * GRID * GRID);
+  const nodes = [];
+  let op = 0;
+
+  function build(list, mx, my, mz, s, level){
+    const nid = nodes.length;
+    const node = { level, min:[mx, my, mz], size:s, start:op, count:0, children:null, spacing:s / GRID };
+    nodes.push(node);
+    const len = list.length;
+    if (len <= LEAF || level >= MAX_LEVEL){
+      out.set(list, op); op += len; node.count = len;
+      prog(id, 'Building octree', op / n);
+      return nid;
+    }
+    const inv = GRID / s, half = s / 2, hx = mx + half, hy = my + half, hz = mz + half, mark = nid + 1;
+    let rest = new Uint32Array(len), oct = new Uint8Array(len);
+    const cnt = new Uint32Array(8);
+    let nr = 0;
+    for (let q = 0; q < len; q++){
+      const k = list[q], x = pos[k*3], y = pos[k*3+1], z = pos[k*3+2];
+      let gx = ((x - mx) * inv) | 0, gy = ((y - my) * inv) | 0, gz = ((z - mz) * inv) | 0;
+      if (gx >= GRID) gx = GRID - 1; if (gy >= GRID) gy = GRID - 1; if (gz >= GRID) gz = GRID - 1;
+      if (gx < 0) gx = 0; if (gy < 0) gy = 0; if (gz < 0) gz = 0;
+      const cell = (gx * GRID + gy) * GRID + gz;
+      if (stamp[cell] !== mark){ stamp[cell] = mark; out[op++] = k; }
+      else {
+        const o = (x >= hx ? 1 : 0) | (y >= hy ? 2 : 0) | (z >= hz ? 4 : 0);
+        rest[nr] = k; oct[nr++] = o; cnt[o]++;
+      }
+    }
+    if (nr < MIN_SPLIT){ for (let q = 0; q < nr; q++) out[op++] = rest[q]; nr = 0; }
+    node.count = op - node.start;
+    prog(id, 'Building octree', op / n);
+    if (!nr) return nid;
+    const lists = [], fill = new Uint32Array(8);
+    for (let o = 0; o < 8; o++) lists[o] = cnt[o] ? new Uint32Array(cnt[o]) : null;
+    for (let q = 0; q < nr; q++){ const o = oct[q]; lists[o][fill[o]++] = rest[q]; }
+    rest = oct = null;
+    node.children = [-1, -1, -1, -1, -1, -1, -1, -1];
+    for (let o = 0; o < 8; o++){
+      if (!lists[o]) continue;
+      const l = lists[o]; lists[o] = null;
+      node.children[o] = build(l, mx + (o & 1 ? half : 0), my + (o & 2 ? half : 0), mz + (o & 4 ? half : 0), half, level + 1);
+    }
+    return nid;
+  }
+  build(idx, cMin[0], cMin[1], cMin[2], size, 0);
+  return { order: out, nodes };
+}
+
+/* ---------------------------------------------------------------- colour families (k-means in CIELAB) */
+
+function lin(c){ c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function lab(r, g, b){
+  const R = lin(r), G = lin(g), B = lin(b);
+  const f = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const x = f((0.4124*R + 0.3576*G + 0.1805*B) / 0.95047);
+  const y = f( 0.2126*R + 0.7152*G + 0.0722*B);
+  const z = f((0.0193*R + 0.1192*G + 0.9505*B) / 1.08883);
+  return [116*y - 16, 500*(x - y), 200*(y - z)];
+}
+
+function families(m){
+  const { id, k, rgbs } = m;
+  const total = rgbs.reduce((s, a) => s + a.length / 3, 0);
+  const S = Math.min(80000, total);
+  const sample = new Float32Array(S * 3), srgb = new Float32Array(S * 3);
+  for (let s = 0; s < S; s++){
+    let r = Math.floor(Math.random() * total), a = 0;
+    while (r >= rgbs[a].length / 3){ r -= rgbs[a].length / 3; a++; }
+    const arr = rgbs[a];
+    const L = lab(arr[r*3], arr[r*3+1], arr[r*3+2]);
+    sample[s*3] = L[0]; sample[s*3+1] = L[1]; sample[s*3+2] = L[2];
+    srgb[s*3] = arr[r*3]; srgb[s*3+1] = arr[r*3+1]; srgb[s*3+2] = arr[r*3+2];
+  }
+  const d2 = (i, c, cent) => { const a = sample[i*3]-cent[c*3], b = sample[i*3+1]-cent[c*3+1], d = sample[i*3+2]-cent[c*3+2]; return a*a + b*b + d*d; };
+  // k-means++ seeding
+  const cent = new Float32Array(k * 3);
+  let first = Math.floor(Math.random() * S);
+  cent.set(sample.subarray(first*3, first*3+3), 0);
+  const best = new Float32Array(S).fill(Infinity);
+  for (let c = 1; c < k; c++){
+    let sum = 0;
+    for (let i = 0; i < S; i++){ const d = d2(i, c - 1, cent); if (d < best[i]) best[i] = d; sum += best[i]; }
+    let r = Math.random() * sum, pick = 0;
+    for (let i = 0; i < S; i++){ r -= best[i]; if (r <= 0){ pick = i; break; } }
+    cent.set(sample.subarray(pick*3, pick*3+3), c * 3);
+  }
+  const lab2 = new Int32Array(S);
+  for (let it = 0; it < 30; it++){
+    const acc = new Float64Array(k * 3), cnt = new Float64Array(k);
+    let moved = 0;
+    for (let i = 0; i < S; i++){
+      let bc = 0, bd = Infinity;
+      for (let c = 0; c < k; c++){ const d = d2(i, c, cent); if (d < bd){ bd = d; bc = c; } }
+      if (lab2[i] !== bc){ moved++; lab2[i] = bc; }
+      acc[bc*3] += sample[i*3]; acc[bc*3+1] += sample[i*3+1]; acc[bc*3+2] += sample[i*3+2]; cnt[bc]++;
+    }
+    for (let c = 0; c < k; c++) if (cnt[c]){ cent[c*3] = acc[c*3]/cnt[c]; cent[c*3+1] = acc[c*3+1]/cnt[c]; cent[c*3+2] = acc[c*3+2]/cnt[c]; }
+    if (it > 2 && moved < S * 0.001) break;
+    postMessage({ type:'progress', id, phase:'Clustering colours', frac: it / 30 });
+  }
+  // order families from dark to light, average their real colours for the swatches
+  const order = [...Array(k).keys()].sort((a, b) => cent[a*3] - cent[b*3]);
+  const rank = new Uint8Array(k); order.forEach((c, i) => rank[c] = i);
+  const colors = Array.from({ length:k }, () => [0, 0, 0, 0]);
+  for (let i = 0; i < S; i++){ const c = colors[rank[lab2[i]]]; c[0] += srgb[i*3]; c[1] += srgb[i*3+1]; c[2] += srgb[i*3+2]; c[3]++; }
+  // lookup table over 5-bit RGB so every point is assigned in one step
+  const lut = new Uint8Array(32768);
+  for (let q = 0; q < 32768; q++){
+    const L = lab(((q >> 10) & 31) * 8 + 4, ((q >> 5) & 31) * 8 + 4, (q & 31) * 8 + 4);
+    let bc = 0, bd = Infinity;
+    for (let c = 0; c < k; c++){
+      const a = L[0]-cent[c*3], b = L[1]-cent[c*3+1], d = L[2]-cent[c*3+2], dd = a*a + b*b + d*d;
+      if (dd < bd){ bd = dd; bc = c; }
+    }
+    lut[q] = rank[bc] + 1;
+  }
+  const counts = new Float64Array(k);
+  const segs = rgbs.map(arr => {
+    const n = arr.length / 3, seg = new Uint8Array(n);
+    for (let i = 0; i < n; i++){
+      const f = lut[((arr[i*3] >> 3) << 10) | ((arr[i*3+1] >> 3) << 5) | (arr[i*3+2] >> 3)];
+      seg[i] = f; counts[f - 1]++;
+    }
+    return seg;
+  });
+  postMessage({ type:'families', id, segs, k,
+    colors: colors.map(c => c[3] ? [c[0]/c[3], c[1]/c[3], c[2]/c[3]] : [128, 128, 128]),
+    counts: [...counts] }, segs.map(s => s.buffer));
+}
+
+/* ---------------------------------------------------------------- generated scans */
+
+function mulberry32(a){ return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function hash3(x, y, z){
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(z | 0, 1440662683);
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function noise3(x, y, z){
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  let u = x - xi, v = y - yi, w = z - zi;
+  u = u*u*(3-2*u); v = v*v*(3-2*v); w = w*w*(3-2*w);
+  const L = (a, b, t) => a + (b - a) * t;
+  return L(
+    L(L(hash3(xi,yi,zi), hash3(xi+1,yi,zi), u), L(hash3(xi,yi+1,zi), hash3(xi+1,yi+1,zi), u), v),
+    L(L(hash3(xi,yi,zi+1), hash3(xi+1,yi,zi+1), u), L(hash3(xi,yi+1,zi+1), hash3(xi+1,yi+1,zi+1), u), v), w);
+}
+function fbm(x, y, oct){ let s = 0, a = 0.5, f = 1; for (let i = 0; i < oct; i++){ s += a * noise3(x*f, y*f, i*7.1); a *= 0.5; f *= 2.03; } return s / (1 - Math.pow(0.5, oct)); }
+
+function makeBuf(n, R){
+  const B = { n, i:0, pos:new Float32Array(n*3), rgb:new Uint8Array(n*3), int:new Uint16Array(n), cls:new Uint8Array(n) };
+  B.put = (x, y, z, r, g, b, c) => {
+    const i = B.i; if (i >= n) return; B.i++;
+    B.pos[i*3] = x; B.pos[i*3+1] = y; B.pos[i*3+2] = z;
+    B.rgb[i*3] = Math.max(0, Math.min(255, r*255)); B.rgb[i*3+1] = Math.max(0, Math.min(255, g*255)); B.rgb[i*3+2] = Math.max(0, Math.min(255, b*255));
+    B.int[i] = Math.max(0, Math.min(65535, (0.3*r + 0.59*g + 0.11*b) * 52000 + R() * 9000));
+    B.cls[i] = c;
+  };
+  return B;
+}
+const done = (B, extra) => Object.assign({ n:B.i, pos:B.pos, rgb:B.rgb, intensity:B.int, cls:B.cls, offset:[0,0,0], georef:false, upZ:true }, extra);
+
+function makePreset(id, name){
+  const R = mulberry32(name.length * 977 + 13);
+  if (name === 'courtyard') return courtyard(id, R);
+  if (name === 'terrain') return terrain(id, R);
+  if (name === 'vessels') return vessels(id, R);
+  throw new Error('Unknown preset ' + name);
+}
+
+function brickColor(u, v){
+  const rowH = 0.085, L = 0.25;
+  const row = Math.floor(v / rowH);
+  const bu = (u + (row % 2 ? 0.125 : 0)) / L, bi = Math.floor(bu);
+  if ((v - row * rowH) < 0.011 || (bu - bi) < 0.045) return [0.78, 0.75, 0.68, 1];
+  const h = hash3(bi, row, 3), h2 = hash3(bi, row, 9);
+  return [0.52 + 0.2*h, 0.24 + 0.1*h2, 0.17 + 0.08*h, 0];
+}
+
+function courtyard(id, R){
+  const W = 24, D = 18, H = 5;
+  const NG = 1100000, NW = [420000, 320000, 320000], NC = 4 * 45000, NT = 270000;
+  const B = makeBuf(NG + NW[0] + NW[1] + NW[2] + NC + NT, R);
+  // stone floor with grout and moss
+  for (let i = 0; i < NG; i++){
+    const x = (R() - 0.5) * W, y = (R() - 0.5) * D, t = 0.6;
+    const tx = Math.floor(x / t), ty = Math.floor(y / t), fx = x / t - tx, fy = y / t - ty;
+    const grout = fx < 0.03 || fy < 0.03;
+    const h = hash3(tx, ty, 1), k = (0.9 + 0.2 * hash3(tx, ty, 2)) * (0.93 + 0.12 * R());
+    let c = h < 0.5 ? [0.74, 0.70, 0.62] : h < 0.8 ? [0.62, 0.60, 0.57] : [0.80, 0.74, 0.64];
+    c = c.map(v => v * k);
+    const wallNear = Math.max(0, 1 - (D/2 - y) / 2.5) + Math.max(0, 1 - (x + W/2) / 2.5);
+    const moss = noise3(x * 0.5, y * 0.5, 0) + 0.35 * wallNear;
+    if (grout){ const g = 0.42 * (0.9 + 0.2 * R()); c = [g, g * 0.98, g * 0.94]; }
+    if ((grout && moss > 0.55) || moss > 0.92){ c = [0.26 + 0.1*R(), 0.40 + 0.1*R(), 0.14 + 0.05*R()]; }
+    const z = (grout ? -0.004 : 0) + (hash3(tx, ty, 3) - 0.5) * 0.008 + R() * 0.002;
+    B.put(x, y, z, c[0], c[1], c[2], 2);
+    if ((i & 0x3ffff) === 0) prog(id, 'Generating', B.i / B.n);
+  }
+  // three brick walls facing into the yard: north (door), east (rust), west (plaster)
+  const walls = [
+    { o:[-W/2, D/2, 0], d:[1, 0], nrm:[0, -1], len:W, n:NW[0], door:true },
+    { o:[W/2, D/2, 0], d:[0, -1], nrm:[-1, 0], len:D, n:NW[1], rust:true },
+    { o:[-W/2, -D/2, 0], d:[0, 1], nrm:[1, 0], len:D, n:NW[2], plaster:true },
+  ];
+  for (const w of walls){
+    for (let i = 0; i < w.n; i++){
+      const u = R() * w.len, v = R() * H;
+      let [r, g, b] = brickColor(u + w.len * 3, v);
+      let off = 0;
+      if (v < 0.5){ const s = 0.75 + 0.5 * v; r *= s; g *= s; b *= s; }
+      if (w.plaster){
+        const pl = noise3(u * 0.55, v * 0.55, 4) + 0.15 * noise3(u * 3, v * 3, 5);
+        if (pl > 0.5){ off = 0.015; const k = 0.92 + 0.08 * R();
+          [r, g, b] = (v > 2.6 ? [0.90, 0.88, 0.82] : [0.86, 0.72, 0.50]).map(x => x * k); }
+      }
+      if (w.rust){
+        for (const u0 of [3.2, 9.5, 14.1]){
+          const width = 0.05 + 0.12 * (1 - v / 3.6);
+          if (Math.abs(u - u0) < width && v < 3.6 && v > 0.6 && noise3(u * 9, v * 2, 6) > 0.35){ r = 0.52; g = 0.28; b = 0.12; }
+        }
+        if (v > 3.6 && v < 3.75 && u > 2.5 && u < 15){ r = 0.30; g = 0.30; b = 0.32; off = 0.06; }   // gutter
+      }
+      if (w.door && u > 13 && u < 14.4 && v < 2.4){
+        off = -0.05;
+        const wear = noise3(u * 6, v * 6, 7);
+        [r, g, b] = wear > 0.72 ? [0.45, 0.33, 0.22] : [0.06 + 0.04*R(), 0.20 + 0.03*R(), 0.58 + 0.06*R()];
+      }
+      const x = w.o[0] + w.d[0] * u + w.nrm[0] * off, y = w.o[1] + w.d[1] * u + w.nrm[1] * off;
+      B.put(x, y, v, r, g, b, 6);
+    }
+    prog(id, 'Generating', B.i / B.n);
+  }
+  // colonnade
+  for (const cx of [-6, -2, 2, 6]){
+    for (let i = 0; i < NC / 4; i++){
+      const a = R() * Math.PI * 2, z = R() * 4.2;
+      const rad = z > 3.95 ? 0.36 : z < 0.2 ? 0.34 : 0.28;
+      const vein = Math.sin(z * 14 + noise3(a * 2, z * 2, 8) * 5);
+      const k = vein > 0.8 ? 0.82 : 1;
+      B.put(cx + Math.cos(a) * rad, 5 + Math.sin(a) * rad, z, 0.86 * k, 0.81 * k, 0.70 * k, 6);
+    }
+  }
+  // tree: trunk and canopy
+  const tx = 6, ty = -4;
+  for (let i = 0; i < 35000; i++){
+    const a = R() * Math.PI * 2, z = R() * 2.8, rad = 0.17 + 0.03 * noise3(a * 3, z * 3, 9);
+    const k = 0.8 + 0.3 * noise3(a * 8, z * 10, 10);
+    B.put(tx + Math.cos(a) * rad, ty + Math.sin(a) * rad, z, 0.36 * k, 0.27 * k, 0.20 * k, 5);
+  }
+  for (let i = 0; i < NT - 35000; i++){
+    const u = R() * 2 - 1, v = R() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    const dx = s * Math.cos(v), dy = s * Math.sin(v), dz = u;
+    const n = noise3(dx * 2 + 5, dy * 2, dz * 2);
+    const rad = 2.3 * (0.8 + 0.35 * n) - R() * 0.35;
+    const autumn = noise3(dx * 3, dy * 3, dz * 3 + 11) > 0.68;
+    const c = autumn ? [0.70, 0.58, 0.18] : [0.16 + 0.15*R(), 0.34 + 0.16*R(), 0.10 + 0.08*R()];
+    B.put(tx + dx * rad, ty + dy * rad, 4.6 + dz * rad * 0.8, c[0], c[1], c[2], 5);
+  }
+  return done(B, { info:'Generated · courtyard', upZ:true });
+}
+
+function terrain(id, R){
+  const S = 600, G = 1000, N = 6e6, WL = 6;
+  const hgt = new Float32Array((G + 1) * (G + 1));
+  for (let j = 0; j <= G; j++){
+    for (let i = 0; i <= G; i++){
+      const x = i / G * S, y = j / G * S;
+      const base = fbm(x / 160, y / 160, 6);
+      const ridge = 1 - Math.abs(2 * noise3(x / 90, y / 90, 3) - 1);
+      const valley = Math.pow(Math.abs((x - S/2 - 60 * Math.sin(y / 120)) / (S/2)), 1.3);
+      hgt[j * (G + 1) + i] = 10 + 70 * base * (0.35 + valley) + 18 * ridge * valley;
+    }
+    if ((j & 63) === 0) prog(id, 'Generating', j / G * 0.3);
+  }
+  const H = (gx, gy) => hgt[Math.min(G, Math.max(0, gy)) * (G + 1) + Math.min(G, Math.max(0, gx))];
+  const B = makeBuf(N, R);
+  const cell = S / G;
+  for (let i = 0; i < N; i++){
+    const x = R() * S, y = R() * S;
+    const fx = x / cell, fy = y / cell, gx = Math.floor(fx), gy = Math.floor(fy), u = fx - gx, v = fy - gy;
+    let z = (H(gx, gy) * (1 - u) + H(gx + 1, gy) * u) * (1 - v) + (H(gx, gy + 1) * (1 - u) + H(gx + 1, gy + 1) * u) * v;
+    const slope = Math.hypot(H(gx + 1, gy) - H(gx - 1, gy), H(gx, gy + 1) - H(gx, gy - 1)) / (2 * cell);
+    z += (noise3(x * 0.8, y * 0.8, 2) - 0.5) * 0.3;
+    let c, cls = 2;
+    const forest = noise3(x / 35, y / 35, 5) + 0.1 * noise3(x / 6, y / 6, 6);
+    if (z < WL){ z = WL + R() * 0.02; c = [0.12, 0.30, 0.42]; cls = 9; }
+    else if (z < WL + 1.2) c = [0.76, 0.70, 0.52];
+    else if (z > 62 + 6 * noise3(x / 20, y / 20, 7)) c = [0.94, 0.95, 0.97];
+    else if (slope > 0.75) c = [0.50, 0.48, 0.45];
+    else if (forest > 0.58 && slope < 0.6 && R() < 0.7){
+      const top = 9 + 9 * noise3(x / 4, y / 4, 8);
+      z += top * (0.75 + 0.25 * R()); c = [0.13, 0.28 + 0.06 * R(), 0.11]; cls = 5;
+    } else { const k = 0.85 + 0.25 * noise3(x / 12, y / 12, 9); c = [0.36 * k, 0.50 * k, 0.21 * k]; cls = 3; }
+    const k = 0.92 + 0.12 * R();
+    B.put(x - S/2, y - S/2, z, c[0] * k, c[1] * k, c[2] * k, cls);
+    if ((i & 0x3ffff) === 0) prog(id, 'Generating', 0.3 + 0.7 * i / N);
+  }
+  return done(B, { offset:[612000, 5150000, 0], georef:true, info:'Generated · terrain' });
+}
+
+function vessels(id, R){
+  const B = makeBuf(1210000, R);
+  const smooth = (a, b, t) => { t = Math.min(1, Math.max(0, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const pots = [
+    { x:-0.6, H:0.46, n:380000, inner:0.15, r:t => 0.045 + 0.12 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.1)), 0.9) + (t > 0.9 ? 0.03 * (t - 0.9) / 0.1 : 0),
+      color:(t, a, p, inner) => {
+        if (t < 0.05 && !inner) return [0.72, 0.55, 0.40];
+        const crack = Math.abs(noise3(p[0] * 60, p[1] * 60, p[2] * 60) - 0.5) < 0.025;
+        return crack ? [0.33, 0.43, 0.36] : [0.55, 0.70, 0.60]; } },
+    { x:0, H:0.16, n:300000, inner:0.5, r:t => 0.06 + 0.17 * Math.pow(t, 0.55),
+      color:(t, a, p, inner) => {
+        if (t < 0.05 && !inner) return [0.70, 0.55, 0.42];
+        const f = noise3(p[0] * 18, p[1] * 18, p[2] * 18 + (inner ? 5 : 0));
+        return f > 0.68 ? [0.60, 0.27, 0.12] : f < 0.25 ? [0.16, 0.40, 0.38] : [0.08, 0.08, 0.09]; } },
+    { x:0.6, H:0.5, n:380000, inner:0.05,
+      r:t => { const body = 0.12 * Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.32) / 0.34, 2))); const s = smooth(0.5, 0.7, t); return Math.max(0.03, body * (1 - s) + 0.03 * s); },
+      color:(t, a, p, inner) => {
+        if (t > 0.35 && t < 0.41) return [0.0, 0.18, 0.65];
+        if (t > 0.12 && t < 0.32 && Math.sin(a * 7 + t * 22) + 0.6 * noise3(a * 3, t * 30, 1) > 1.15) return [0.10, 0.25, 0.60];
+        return [0.93, 0.93, 0.90]; } },
+  ];
+  for (const P of pots){
+    let rmax = 0; for (let t = 0; t <= 1; t += 0.01) rmax = Math.max(rmax, P.r(t));
+    let made = 0;
+    while (made < P.n){
+      const t = R(), r = P.r(t);
+      if (R() > r / rmax) continue;
+      const a = R() * Math.PI * 2, inner = R() < P.inner;
+      const rr = inner ? r - 0.006 : r;
+      const p = [rr * Math.cos(a), rr * Math.sin(a), t * P.H];
+      const c = P.color(t, a, p, inner), k = 0.92 + 0.12 * R();
+      B.put(P.x + p[0], p[1], p[2] + 0.002, c[0] * k, c[1] * k, c[2] * k, 1);
+      made++;
+    }
+    prog(id, 'Generating', B.i / B.n);
+  }
+  for (let i = 0; i < 150000; i++){
+    const x = (R() - 0.5) * 1.9, y = (R() - 0.5) * 0.6, g = 0.80 + 0.05 * R();
+    if (pots.some(P => Math.hypot(x - P.x, y) < P.r(0) * 0.95)) continue;
+    B.put(x, y, 0, g, g, g * 0.97, 1);
+  }
+  return done(B, { info:'Generated · vessels' });
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+/* ============================== state ============================== */
+
+const $ = id => document.getElementById(id);
+const BLUE = 0x002FA7;
+const MIN_NODE_PX = 90;           // nodes smaller than this on screen are not refined (Potree: 150)
+
+const params = {
+  budget: 3e6, size: 1.5, sizeMode: 'adaptive', shape: 'circle', color: 'rgb', ramp: 'ink',
+  edl: 0.6, edlRadius: 1.4, background: 'paper', grid: true, turnSpeed: 2, k: 6,
+};
+const scans = new Map();          // id -> scan
+let nextId = 1;
+let selected = null;
+let tool = 'select';
+let editBox = false;
+const world = { ref: null };      // source coordinate (Z up) that sits at the world origin
+const jobs = new Map();           // worker job id -> { name, parent, onDone }
+
+/* ============================== scene ============================== */
+
+const wrap = $('canvas-wrap');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.autoClear = false;
+wrap.appendChild(renderer.domElement);
+
+const cloudScene = new THREE.Scene();     // points only — rendered into the EDL target
+const overlay = new THREE.Scene();        // grid, measures, clip box, gizmo — drawn on top
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 3000);
+camera.position.set(18, 13, 22);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.08;
+orbit.screenSpacePanning = true;
+
+let grid = null;
+function makeGrid(size){
+  if (grid){ overlay.remove(grid); grid.geometry.dispose(); grid.material.dispose(); }
+  const night = params.background === 'night';
+  grid = new THREE.GridHelper(size, 20, night ? 0x3a3a3a : 0xc9c9c9, night ? 0x262626 : 0xe7e7e7);
+  grid.userData.size = size;
+  grid.visible = params.grid;
+  overlay.add(grid);
+}
+makeGrid(40);
+
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setSize(0.85);
+overlay.add(gizmo);
+gizmo.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; });
+gizmo.addEventListener('objectChange', () => { updateBoundsUniforms(); updateClipUniform(); });
+
+/* ============================== point material ============================== */
+
+const CLASS_COLORS = Array.from({ length:32 }, (_, i) => {
+  const table = {
+    0:[0.55,0.55,0.55], 1:[0.68,0.68,0.68], 2:[0.63,0.42,0.24], 3:[0.62,0.82,0.38], 4:[0.36,0.68,0.30],
+    5:[0.10,0.42,0.16], 6:[0.00,0.18,0.65], 7:[0.90,0.10,0.40], 8:[0.95,0.75,0.10], 9:[0.25,0.60,0.92],
+    10:[0.55,0.35,0.55], 11:[0.25,0.25,0.25], 13:[0.95,0.85,0.30], 14:[0.95,0.70,0.10], 15:[0.80,0.40,0.10],
+    17:[0.75,0.65,0.45], 18:[1.00,0.00,0.00],
+  };
+  const c = table[i] || [0.5 + 0.3 * ((i * 37) % 7) / 7, 0.5, 0.6];
+  return new THREE.Vector3(...c);
+});
+
+const shared = {
+  uSize:{ value:1.5 }, uSizeMode:{ value:1 }, uProj:{ value:1 }, uPixelRatio:{ value:1 },
+  uShape:{ value:1 }, uShapeScale:{ value:1 }, uFlowScale:{ value:1 },
+  uColorMode:{ value:0 }, uRamp:{ value:0 }, uElev:{ value:new THREE.Vector2(0, 1) },
+  uClassColors:{ value:CLASS_COLORS },
+  uFamVis:{ value:new Array(17).fill(1) },
+  uFamColor:{ value:Array.from({ length:17 }, () => new THREE.Vector3(0.6, 0.6, 0.6)) },
+  uClipMode:{ value:0 }, uClipInv:{ value:new THREE.Matrix4() },
+};
+
+const POINT_VS = /* glsl */`
+attribute vec3 rgb;
+attribute float intensity;
+attribute float classification;
+attribute float family;
+uniform float uSize, uProj, uPixelRatio, uSpacing, uIntScale, uShapeScale, uFlowScale;
+uniform int uSizeMode, uColorMode, uRamp, uClipMode;
+uniform sampler2D uVisTex;
+uniform int uVnStart;
+uniform vec3 uNodeMin;
+uniform float uNodeSize, uRootSpacing;
+uniform vec2 uElev;
+uniform vec3 uClassColors[32];
+uniform float uFamVis[17];
+uniform vec3 uFamColor[17];
+uniform mat4 uClipInv;
+varying vec3 vColor;
+varying float vRand;
+varying float vAngle;
+
+vec3 rampInk(float t){
+  t = clamp(t, 0.0, 1.0);
+  vec3 a = vec3(0.84, 0.87, 0.93), b = vec3(0.0, 0.184, 0.655), c = vec3(0.04, 0.04, 0.06);
+  return t < 0.5 ? mix(a, b, t * 2.0) : mix(b, c, t * 2.0 - 1.0);
+}
+vec3 rampSpectral(float t){
+  t = clamp(t, 0.0, 1.0) * 4.0;
+  vec3 s0 = vec3(0.17, 0.25, 0.70), s1 = vec3(0.16, 0.66, 0.80), s2 = vec3(0.45, 0.78, 0.35), s3 = vec3(0.98, 0.82, 0.25), s4 = vec3(0.86, 0.20, 0.16);
+  if (t < 1.0) return mix(s0, s1, t);
+  if (t < 2.0) return mix(s1, s2, t - 1.0);
+  if (t < 3.0) return mix(s2, s3, t - 2.0);
+  return mix(s3, s4, t - 3.0);
+}
+
+// Potree's adaptive point size: walk down the tree of nodes drawn this frame (encoded in
+// uVisTex as child mask + offset to the first child) to the deepest one that covers this
+// point, and size the point by that level's spacing.
+float lodLevel(vec3 p){
+  vec3 nmin = uNodeMin;
+  float size = uNodeSize, depth = 0.0;
+  int idx = uVnStart;
+  for (int i = 0; i < 20; i++){
+    vec4 v = texelFetch(uVisTex, ivec2(idx % 2048, idx / 2048), 0) * 255.0;
+    int mask = int(v.r + 0.5);
+    float h = size * 0.5;
+    vec3 c = nmin + h;
+    int oct = (p.x >= c.x ? 1 : 0) + (p.y >= c.y ? 2 : 0) + (p.z >= c.z ? 4 : 0);
+    if ((mask & (1 << oct)) == 0) break;
+    int before = 0;
+    for (int b = 0; b < 8; b++) if (b < oct && (mask & (1 << b)) != 0) before++;
+    idx += int(v.g + 0.5) * 256 + int(v.b + 0.5) + before;
+    nmin += vec3(float(oct & 1), float((oct >> 1) & 1), float((oct >> 2) & 1)) * h;
+    size = h;
+    depth += 1.0;
+  }
+  return depth;
+}
+
+void main(){
+  int f = int(family + 0.5);
+  vec4 world = modelMatrix * vec4(position, 1.0);
+  bool hidden = uFamVis[f] < 0.5;
+  if (uClipMode > 0){
+    vec3 c = (uClipInv * world).xyz;
+    bool inside = all(lessThanEqual(abs(c), vec3(0.5)));
+    if ((uClipMode == 1) != inside) hidden = true;
+  }
+  if (hidden){ gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+
+  vec4 mv = viewMatrix * world;
+  gl_Position = projectionMatrix * mv;
+  float px = uSize * uPixelRatio;
+  if (uSizeMode == 1){
+    float spacing = uSpacing / exp2(lodLevel(position));
+    px = uSize * spacing * uProj / max(-mv.z, 1e-4);
+  }
+  gl_PointSize = clamp(px * uShapeScale, 1.0, 64.0 * uPixelRatio);
+
+  // per-point random value (shards) and a smooth flow field over the scene (brush strokes)
+  vRand = fract(sin(dot(position, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+  vec3 q = world.xyz * uFlowScale;
+  vAngle = 1.3 * sin(q.x * 0.9 + 0.8 * sin(q.z * 1.3)) + 0.9 * cos(q.z * 0.8 + q.y * 0.7) + (vRand - 0.5) * 0.5;
+
+  vec3 col = rgb;
+  if (uColorMode == 1){
+    float t = (world.y - uElev.x) / max(uElev.y - uElev.x, 1e-6);
+    col = uRamp == 0 ? rampInk(t) : rampSpectral(t);
+  } else if (uColorMode == 2){
+    col = vec3(pow(clamp(intensity * uIntScale, 0.0, 1.0), 0.75));
+  } else if (uColorMode == 3){
+    col = uClassColors[int(classification + 0.5) & 31];
+  } else if (uColorMode == 4){
+    col = f == 0 ? mix(rgb, vec3(0.92), 0.7) : uFamColor[f];
+  }
+  vColor = col;
+}`;
+
+// point shapes, all cut out of the point sprite (c runs -1..1, y up)
+const POINT_FS = /* glsl */`
+uniform int uShape;
+varying vec3 vColor;
+varying float vRand;
+varying float vAngle;
+vec2 rot(vec2 p, float a){ float s = sin(a), c = cos(a); return vec2(c * p.x - s * p.y, s * p.x + c * p.y); }
+float side(vec2 p, vec2 a, vec2 b){ return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x); }
+void main(){
+  vec2 c = gl_PointCoord * 2.0 - 1.0;
+  c.y = -c.y;
+  vec3 col = vColor;
+  if (uShape == 1){                                   // circle
+    if (dot(c, c) > 1.0) discard;
+  } else if (uShape == 2){                            // triangle
+    if (c.y < -0.75 || c.y > 0.95 - 1.732 * abs(c.x)) discard;
+  } else if (uShape == 3){                            // oval
+    if (c.x * c.x + c.y * c.y / 0.3 > 1.0) discard;
+  } else if (uShape == 4){                            // sphere: lit hemisphere
+    float r2 = dot(c, c);
+    if (r2 > 1.0) discard;
+    vec3 n = vec3(c, sqrt(1.0 - r2)), l = normalize(vec3(-0.45, 0.6, 0.66));
+    float d = max(dot(n, l), 0.0);
+    float sp = pow(max(dot(reflect(-l, n), vec3(0.0, 0.0, 1.0)), 0.0), 24.0);
+    col = col * (0.28 + 0.85 * d) + vec3(0.35 * sp);
+  } else if (uShape == 5){                            // cube: isometric, three shaded faces
+    vec2 a = abs(c);
+    if (a.x > 0.866 || a.y + 0.577 * a.x > 1.0) discard;
+    col *= c.y > 0.577 * a.x ? 1.18 : (c.x < 0.0 ? 0.86 : 0.6);
+  } else if (uShape == 6){                            // spike: four-pointed star
+    vec2 a = sqrt(abs(c));
+    if (a.x + a.y > 1.0) discard;
+  } else if (uShape == 7){                            // shard: a randomly turned, irregular splinter
+    vec2 p = rot(c, vRand * 6.2832);
+    float j = fract(vRand * 7.13), k = fract(vRand * 13.7);
+    vec2 A = vec2(-0.95, -0.55 + 0.3 * j), B = vec2(0.9, -0.85 + 0.5 * k), C = vec2(-0.2 + 0.5 * j, 0.95);
+    if (side(p, A, B) < 0.0 || side(p, B, C) < 0.0 || side(p, C, A) < 0.0) discard;
+    col *= 0.8 + 0.4 * k;
+  } else if (uShape == 8){                            // brush: tapered strokes following a flow field
+    vec2 p = rot(c, -vAngle);
+    float w = 0.26 * (1.0 - 0.6 * abs(p.x));
+    if (abs(p.x) > 0.98 || abs(p.y) > w) discard;
+    col *= 0.85 + 0.3 * fract(vRand * 5.3);
+  } else if (uShape == 9){                            // ring: hollow circle
+    float r2 = dot(c, c);
+    if (r2 > 1.0 || r2 < 0.36) discard;
+  }
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+const VIS_W = 2048, VIS_H = 8;     // visible-node texture: up to 16384 nodes per scan
+function makeMaterial(intScale, visTex){
+  return new THREE.ShaderMaterial({
+    uniforms: { ...shared, uSpacing:{ value:1 }, uIntScale:{ value:intScale }, uVisTex:{ value:visTex },
+      uVnStart:{ value:0 }, uNodeMin:{ value:new THREE.Vector3() }, uNodeSize:{ value:1 }, uRootSpacing:{ value:1 } },
+    vertexShader: POINT_VS, fragmentShader: POINT_FS,
+  });
+}
+
+/* ============================== eye-dome lighting ============================== */
+// After Boucheny (2009) as implemented in Potree: every pixel is darkened by how much
+// nearer its neighbours are (in log depth). Silhouettes against the background get an
+// ink outline. Writes depth too, so the overlay is still occluded by the points.
+
+const edlMat = new THREE.ShaderMaterial({
+  uniforms: {
+    tColor:{ value:null }, tDepth:{ value:null }, uTexel:{ value:new THREE.Vector2() },
+    uNear:{ value:0.1 }, uFar:{ value:1000 }, uStrength:{ value:0.6 }, uRadius:{ value:1.4 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tColor, tDepth;
+    uniform vec2 uTexel;
+    uniform float uNear, uFar, uStrength, uRadius;
+    varying vec2 vUv;
+    float logDepth(float d){ return log2(uNear * uFar / (uFar - d * (uFar - uNear))); }
+    void main(){
+      float d = texture2D(tDepth, vUv).x;
+      bool bg = d >= 1.0;
+      float ld = bg ? 0.0 : logDepth(d);
+      const vec2 off[8] = vec2[8](vec2(1,0), vec2(-1,0), vec2(0,1), vec2(0,-1),
+        vec2(0.7071,0.7071), vec2(-0.7071,0.7071), vec2(0.7071,-0.7071), vec2(-0.7071,-0.7071));
+      float sum = 0.0;
+      for (int i = 0; i < 8; i++){
+        float nd = texture2D(tDepth, vUv + off[i] * uRadius * uTexel).x;
+        if (nd < 1.0) sum += bg ? 100.0 : max(0.0, ld - logDepth(nd));
+      }
+      float res = sum / 8.0;
+      if (bg && res == 0.0) discard;
+      float shade = exp(-res * 300.0 * uStrength);
+      gl_FragColor = vec4(texture2D(tColor, vUv).rgb * shade, 1.0);
+      gl_FragDepth = bg ? 1.0 : d;
+    }`,
+  depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth,
+});
+const edlScene = new THREE.Scene();
+const edlQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), edlMat);
+edlQuad.frustumCulled = false;
+edlScene.add(edlQuad);
+const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+let rt = null;
+
+function makeTarget(){
+  const s = renderer.getDrawingBufferSize(new THREE.Vector2());
+  if (rt) rt.dispose();
+  rt = new THREE.WebGLRenderTarget(s.x, s.y);
+  rt.depthTexture = new THREE.DepthTexture(s.x, s.y);
+  rt.depthTexture.type = THREE.FloatType;
+  edlMat.uniforms.tColor.value = rt.texture;
+  edlMat.uniforms.tDepth.value = rt.depthTexture;
+  edlMat.uniforms.uTexel.value.set(1 / s.x, 1 / s.y);
+}
+
+function resize(){
+  const w = wrap.clientWidth || 1, h = wrap.clientHeight || 1;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  measureMat.resolution.set(w, h);
+  makeTarget();
+}
+
+/* ============================== helpers ============================== */
+
+const toastEl = $('toast');
+let toastTimer = null;
+function toast(msg, isErr = false){
+  toastEl.textContent = msg;
+  toastEl.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.className = '', 3200);
+}
+const fmtN = n => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n);
+function download(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+const visibleScans = () => [...scans.values()].filter(s => s.visible);
+
+function worldBox(scan, target = new THREE.Box3()){
+  scan.group.updateMatrixWorld(true);
+  target.min.fromArray(scan.bounds.min); target.max.fromArray(scan.bounds.max);
+  return target.applyMatrix4(scan.axis.matrixWorld);
+}
+function sceneBox(list = visibleScans()){
+  const box = new THREE.Box3(), b = new THREE.Box3();
+  for (const s of list) box.union(worldBox(s, b));
+  return box;
+}
+
+/* ============================== worker ============================== */
+
+const worker = new Worker(URL.createObjectURL(new Blob([$('worker-src').textContent], { type:'text/javascript' })));
+let jobSeq = 1;
+
+worker.onmessage = e => {
+  const m = e.data, job = jobs.get(m.id);
+  if (m.type === 'progress'){ if (job) showProgress(`${m.phase} — ${job.name}`, m.frac); return; }
+  jobs.delete(m.id);
+  if (!jobs.size) hideProgress();
+  if (!job) return;
+  if (m.type === 'error'){ toast(`${job.name}: ${m.message}`, true); return; }
+  job.onDone(m);
+};
+
+function runJob(msg, name, onDone, transfer = []){
+  const id = jobSeq++;
+  jobs.set(id, { name, onDone });
+  showProgress(`Reading — ${name}`, 0);
+  worker.postMessage({ ...msg, id }, transfer);
+  return id;
+}
+
+function showProgress(text, frac){
+  document.body.classList.add('loading');
+  $('loading').textContent = text + (frac > 0 ? ` · ${Math.round(frac * 100)}%` : '');
+  $('progress').firstElementChild.style.width = Math.round(frac * 100) + '%';
+}
+function hideProgress(){ document.body.classList.remove('loading'); }
+
+/* ============================== loading ============================== */
+
+const EXT = ['las', 'laz', 'ply', 'xyz', 'txt', 'csv', 'pts', 'asc'];
+
+async function loadFiles(files){
+  for (const f of files){
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!EXT.includes(ext)){ toast(`${f.name}: unsupported format`, true); continue; }
+    if (ext === 'e57'){ toast('E57: export it as LAS or PLY from CloudCompare first', true); continue; }
+    const buffer = await f.arrayBuffer();
+    loadBuffer(f.name, buffer);
+  }
+}
+
+function loadBuffer(name, buffer, opts = {}){
+  runJob({ type:'file', name, buffer }, name, m => addScan(m, name, opts), [buffer]);
+}
+
+async function loadURL(url, opts = {}){
+  const name = decodeURIComponent(url.split(/[?#]/)[0].split('/').pop() || 'scan');
+  showProgress(`Downloading — ${name}`, 0);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const total = +res.headers.get('content-length') || 0;
+    const reader = res.body.getReader(), parts = [];
+    let got = 0;
+    for (;;){
+      const { done, value } = await reader.read();
+      if (done) break;
+      parts.push(value); got += value.length;
+      showProgress(`Downloading — ${name}`, total ? got / total : 0);
+    }
+    const buf = new Uint8Array(got);
+    let o = 0; for (const p of parts){ buf.set(p, o); o += p.length; }
+    loadBuffer(name, buf.buffer, opts);
+  } catch (err){
+    hideProgress();
+    toast(`${name}: could not download (${err.message}) — the server must allow cross-origin requests`, true);
+  }
+}
+
+function loadPreset(name){
+  runJob({ type:'preset', name }, name, m => addScan(m, name[0].toUpperCase() + name.slice(1), {}));
+}
+
+/* ============================== scans ============================== */
+
+function addScan(m, name, opts){
+  const scan = {
+    id: nextId++, name, n: m.n, pos: m.pos, rgb: m.rgb, intensity: m.intensity, cls: m.cls, family: m.family,
+    nodes: m.nodes, bounds: m.bounds, offset: m.offset, georef: m.georef, upZ: m.upZ, info: m.info,
+    hasRGB: m.hasRGB, hasIntensity: m.hasIntensity, hasClass: m.hasClass, visible: true,
+  };
+  scan.group = new THREE.Group();
+  scan.axis = new THREE.Group();
+  scan.axis.rotation.x = scan.upZ ? -Math.PI / 2 : 0;
+  scan.group.add(scan.axis);
+  cloudScene.add(scan.group);
+  scan.visData = new Uint8Array(VIS_W * VIS_H * 4);
+  scan.visTex = new THREE.DataTexture(scan.visData, VIS_W, VIS_H, THREE.RGBAFormat);
+  scan.visTex.magFilter = scan.visTex.minFilter = THREE.NearestFilter;
+  scan.material = makeMaterial(65535 / Math.max(1, m.intensityMax), scan.visTex);
+  for (const nd of scan.nodes){
+    nd.points = null;
+    nd.center = new THREE.Vector3(nd.min[0] + nd.size / 2, nd.min[1] + nd.size / 2, nd.min[2] + nd.size / 2);
+    nd.radius = nd.size * 0.8661;
+  }
+  scans.set(scan.id, scan);
+
+  if (opts.parent) placeLikeParent(scan, opts.parent, m.shift);
+  else placeScan(scan);
+  if (opts.hideParent) opts.parent.visible = false;
+
+  const first = scans.size === 1;
+  if (first || opts.frame) frameAll();
+  else updateBoundsUniforms();
+  if (!opts.quiet){
+    if (scans.size > 1) select(scan);
+    toast(`${name} — ${fmtN(scan.n)} points · ${scan.nodes.length} octree nodes`);
+  }
+  if (fam.count) { /* new scans join the families as "unassigned" until Find families runs again */ }
+  refreshUI();
+  return scan;
+}
+
+// Georeferenced scans of the same area keep their real relative positions; anything
+// else is set down on the ground next to what is already there.
+function placeScan(scan){
+  if (scan.georef && scan.upZ && world.ref){
+    const d = scan.offset.map((v, a) => v - world.ref[a]);
+    if (Math.hypot(d[0], d[1], d[2]) < 1e5){ scan.group.position.set(d[0], d[2], -d[1]); return; }
+  }
+  const others = [...scans.values()].filter(s => s !== scan && s.visible);
+  scan.group.position.set(0, 0, 0);
+  const b = worldBox(scan);
+  let x = -(b.min.x + b.max.x) / 2;
+  if (others.length){
+    const all = sceneBox(others);
+    x = all.max.x + (b.max.x - b.min.x) * 0.15 + 0.2 - b.min.x;
+  }
+  scan.group.position.set(x, -b.min.y, -(b.min.z + b.max.z) / 2);
+  // the first georeferenced scan fixes where real-world coordinates sit in the scene
+  if (scan.georef && scan.upZ && !world.ref){
+    const p = scan.group.position;
+    world.ref = [scan.offset[0] - p.x, scan.offset[1] + p.z, scan.offset[2] - p.y];
+  }
+}
+
+// a scan cut out of another one sits exactly where it came from
+function placeLikeParent(scan, parent, shift){
+  parent.group.updateMatrixWorld(true);
+  scan.axis.rotation.copy(parent.axis.rotation);
+  scan.group.quaternion.copy(parent.group.quaternion);
+  scan.group.scale.copy(parent.group.scale);
+  const p = new THREE.Vector3(...shift).applyEuler(parent.axis.rotation);
+  scan.group.position.copy(parent.group.localToWorld(p));
+  scan.upZ = parent.upZ;
+}
+
+function removeScan(scan){
+  for (const nd of scan.nodes) if (nd.points){ nd.points.geometry.dispose(); }
+  scan.material.dispose();
+  scan.visTex.dispose();
+  cloudScene.remove(scan.group);
+  scans.delete(scan.id);
+  if (selected === scan) select(null);
+  if (!scans.size){ world.ref = null; clearMeasures(); }
+  updateBoundsUniforms();
+  refreshUI();
+}
+
+function select(scan){
+  selected = scan;
+  if (scan) editBox = false;
+  attachGizmo();
+  refreshUI();
+}
+
+function attachGizmo(){
+  if (editBox && clipBox.visible) gizmo.attach(clipBox);
+  else if (selected && selected.visible && tool === 'select') gizmo.attach(selected.group);
+  else gizmo.detach();
+  $('btn-box-edit').classList.toggle('active', editBox);
+}
+
+function nodePoints(scan, nd){
+  const s = nd.start, e = nd.start + nd.count;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(scan.pos.subarray(s * 3, e * 3), 3));
+  g.setAttribute('rgb', new THREE.BufferAttribute(scan.rgb.subarray(s * 3, e * 3), 3, true));
+  g.setAttribute('intensity', new THREE.BufferAttribute(scan.intensity.subarray(s, e), 1, true));
+  g.setAttribute('classification', new THREE.BufferAttribute(scan.cls.subarray(s, e), 1));
+  g.setAttribute('family', new THREE.BufferAttribute(scan.family.subarray(s, e), 1));
+  g.boundingSphere = new THREE.Sphere(nd.center.clone(), nd.radius);
+  const p = new THREE.Points(g, scan.material);
+  p.frustumCulled = false;
+  p.matrixAutoUpdate = false;
+  p.onBeforeRender = () => {
+    const u = scan.material.uniforms;
+    u.uSpacing.value = nd.spacing * scan.scale;
+    u.uVnStart.value = nd.vn;
+    u.uNodeMin.value.fromArray(nd.min);
+    u.uNodeSize.value = nd.size;
+    scan.material.uniformsNeedUpdate = true;
+  };
+  scan.axis.add(p);
+  nd.points = p;
+  return p;
+}
+
+/* ============================== level of detail ============================== */
+// Potree's traversal: start at every root, always open the node that is largest on
+// screen next, stop when the point budget is spent. Points are only ever drawn from
+// nodes that passed the frustum test.
+
+const _frustum = new THREE.Frustum(), _pm = new THREE.Matrix4(), _c = new THREE.Vector3(), _sph = new THREE.Sphere();
+let lodFrame = 0, shownPoints = 0, shownNodes = 0;
+
+function heapPush(h, e){ h.push(e); let i = h.length - 1; while (i > 0){ const p = (i - 1) >> 1; if (h[p].w >= e.w) break; h[i] = h[p]; i = p; } h[i] = e; }
+function heapPop(h){
+  const top = h[0], last = h.pop();
+  if (h.length){ let i = 0; const n = h.length;
+    for (;;){ let c = 2 * i + 1; if (c >= n) break; if (c + 1 < n && h[c + 1].w > h[c].w) c++; if (h[c].w <= last.w) break; h[i] = h[c]; i = c; }
+    h[i] = last; }
+  return top;
+}
+
+function updateLOD(){
+  lodFrame++;
+  cloudScene.updateMatrixWorld();
+  camera.updateMatrixWorld();
+  _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  _frustum.setFromProjectionMatrix(_pm);
+  const pxPerUnit = wrap.clientHeight / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const camPos = camera.position;
+  const heap = [];
+  const weigh = (scan, nd) => {
+    _c.copy(nd.center).applyMatrix4(scan.axis.matrixWorld);
+    _sph.set(_c, nd.radius * scan.scale);
+    if (!_frustum.intersectsSphere(_sph)) return -1;
+    const d = Math.max(_c.distanceTo(camPos) - _sph.radius * 0.0, 1e-6);
+    return _sph.radius / d * pxPerUnit;
+  };
+  for (const scan of scans.values()){
+    scan.scale = scan.axis.matrixWorld.getMaxScaleOnAxis();
+    if (!scan.visible) continue;
+    const w = weigh(scan, scan.nodes[0]);
+    if (w >= 0) heapPush(heap, { w: Infinity, scan, nd: scan.nodes[0] });
+  }
+  let pts = 0, nodes = 0;
+  while (heap.length){
+    const { scan, nd } = heapPop(heap);
+    if (pts > 0 && pts + nd.count > params.budget) break;
+    pts += nd.count; nodes++;
+    nd.frame = lodFrame;
+    if (!nd.points) nodePoints(scan, nd);
+    if (!nd.children) continue;
+    for (const ci of nd.children){
+      if (ci < 0) continue;
+      const ch = scan.nodes[ci], w = weigh(scan, ch);
+      if (w >= MIN_NODE_PX) heapPush(heap, { w, scan, nd: ch });
+    }
+  }
+  for (const scan of scans.values()){
+    for (const nd of scan.nodes) if (nd.points) nd.points.visible = scan.visible && nd.frame === lodFrame;
+    if (scan.visible) encodeVisible(scan);
+  }
+  shownPoints = pts; shownNodes = nodes;
+}
+
+// breadth-first list of the drawn nodes: per node its mask of drawn children and the
+// offset to the first of them — what the vertex shader walks in lodLevel()
+function encodeVisible(scan){
+  const root = scan.nodes[0];
+  if (root.frame !== lodFrame) return;
+  const order = [root], data = scan.visData, cap = VIS_W * VIS_H;
+  root.vn = 0;
+  for (let q = 0; q < order.length; q++){
+    const nd = order[q], first = order.length;
+    let mask = 0;
+    if (nd.children && first < cap){
+      for (let o = 0; o < 8; o++){
+        const ci = nd.children[o];
+        if (ci < 0) continue;
+        const ch = scan.nodes[ci];
+        if (ch.frame !== lodFrame || order.length >= cap) continue;
+        mask |= 1 << o; ch.vn = order.length; order.push(ch);
+      }
+    }
+    const off = first - q;
+    data[q*4] = mask; data[q*4+1] = (off >> 8) & 255; data[q*4+2] = off & 255;
+  }
+  scan.visTex.needsUpdate = true;
+}
+
+/* ============================== uniforms ============================== */
+
+function updateBoundsUniforms(){
+  const box = sceneBox();
+  if (!box.isEmpty()){
+    shared.uElev.value.set(box.min.y, box.max.y);
+    shared.uFlowScale.value = 8 / Math.max(box.getSize(new THREE.Vector3()).length(), 1e-3);
+  }
+}
+
+function updateCameraRange(){
+  const box = sceneBox();
+  const size = box.isEmpty() ? 50 : box.getSize(new THREE.Vector3()).length();
+  camera.near = Math.max(size / 5000, 0.001);
+  camera.far = size * 30 + 100;
+  camera.updateProjectionMatrix();
+  return size;
+}
+
+function syncUniforms(){
+  const pr = renderer.getPixelRatio();
+  shared.uSize.value = params.size;
+  shared.uSizeMode.value = params.sizeMode === 'adaptive' ? 1 : 0;
+  shared.uPixelRatio.value = pr;
+  shared.uProj.value = camera.projectionMatrix.elements[5] * wrap.clientHeight * pr / 2;
+  const shape = SHAPES.find(x => x.id === params.shape) || SHAPES[1];
+  shared.uShape.value = shape.code;
+  shared.uShapeScale.value = shape.scale;
+  shared.uColorMode.value = { rgb:0, height:1, intensity:2, class:3, family:4 }[params.color];
+  shared.uRamp.value = params.ramp === 'ink' ? 0 : 1;
+  edlMat.uniforms.uNear.value = camera.near;
+  edlMat.uniforms.uFar.value = camera.far;
+  edlMat.uniforms.uStrength.value = params.edl;
+  edlMat.uniforms.uRadius.value = params.edlRadius * pr;
+}
+
+/* ============================== camera ============================== */
+
+function frameAll(dir = null){
+  const box = sceneBox();
+  if (box.isEmpty()) return;
+  const size = updateCameraRange();
+  const center = box.getCenter(new THREE.Vector3());
+  const radius = box.getBoundingSphere(new THREE.Sphere()).radius;
+  const d = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov) / 2) * 1.05;
+  const v = dir ? dir.clone().normalize() : camera.position.clone().sub(orbit.target).normalize();
+  orbit.target.copy(center);
+  camera.position.copy(center).addScaledVector(v, d);
+  camera.updateMatrixWorld();
+  const g = Math.pow(10, Math.ceil(Math.log10(Math.max(box.max.x - box.min.x, box.max.z - box.min.z) * 1.5 || 10)));
+  makeGrid(g);
+  grid.position.set(Math.round(center.x / (g / 20)) * (g / 20), 0, Math.round(center.z / (g / 20)) * (g / 20));
+  updateBoundsUniforms();
+  return size;
+}
+
+const VIEWS = { top:new THREE.Vector3(0, 1, 0.0001), front:new THREE.Vector3(0, 0.08, 1), side:new THREE.Vector3(1, 0.08, 0), iso:new THREE.Vector3(1, 0.85, 1.1) };
+
+// fly keys as in LidarView: W A S D move, Q E down / up
+const keysDown = new Set();
+const _fwd = new THREE.Vector3(), _right = new THREE.Vector3(), _move = new THREE.Vector3();
+function fly(dt){
+  if (!keysDown.size) return;
+  const speed = Math.max(camera.position.distanceTo(orbit.target), 0.5) * 0.9 * dt;
+  camera.getWorldDirection(_fwd);
+  _right.crossVectors(_fwd, camera.up).normalize();
+  _move.set(0, 0, 0);
+  if (keysDown.has('w')) _move.add(_fwd);
+  if (keysDown.has('s')) _move.sub(_fwd);
+  if (keysDown.has('d')) _move.add(_right);
+  if (keysDown.has('a')) _move.sub(_right);
+  if (keysDown.has('e')) _move.y += 1;
+  if (keysDown.has('q')) _move.y -= 1;
+  if (_move.lengthSq() === 0) return;
+  _move.normalize().multiplyScalar(speed);
+  camera.position.add(_move);
+  orbit.target.add(_move);
+}
+
+/* ============================== picking ============================== */
+
+const raycaster = new THREE.Raycaster();
+const _ray = new THREE.Ray(), _inv = new THREE.Matrix4(), _w = new THREE.Vector3(), _clipP = new THREE.Vector3();
+
+function pointHidden(scan, i, worldPos){
+  if (shared.uFamVis.value[scan.family[i]] < 0.5) return true;
+  const mode = shared.uClipMode.value;
+  if (mode){
+    _clipP.copy(worldPos).applyMatrix4(shared.uClipInv.value);
+    const inside = Math.abs(_clipP.x) <= 0.5 && Math.abs(_clipP.y) <= 0.5 && Math.abs(_clipP.z) <= 0.5;
+    if ((mode === 1) !== inside) return true;
+  }
+  return false;
+}
+
+function pick(clientX, clientY, tolPx = 6){
+  const rect = renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2((clientX - rect.left) / rect.width * 2 - 1, -(clientY - rect.top) / rect.height * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const tol = tolPx * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / rect.height;
+  let best = null;
+  for (const scan of visibleScans()){
+    _inv.copy(scan.axis.matrixWorld).invert();
+    _ray.copy(raycaster.ray).applyMatrix4(_inv);
+    const o = _ray.origin, d = _ray.direction, P = scan.pos;
+    for (const nd of scan.nodes){
+      if (!nd.points || !nd.points.visible) continue;
+      if (_ray.distanceSqToPoint(nd.center) > nd.radius * nd.radius * 1.05) continue;
+      for (let i = nd.start, e = nd.start + nd.count; i < e; i++){
+        const dx = P[i*3] - o.x, dy = P[i*3+1] - o.y, dz = P[i*3+2] - o.z;
+        const t = dx * d.x + dy * d.y + dz * d.z;
+        if (t <= 0) continue;
+        const perp2 = dx*dx + dy*dy + dz*dz - t*t, lim = t * tol;
+        if (perp2 > lim * lim) continue;
+        _w.set(P[i*3], P[i*3+1], P[i*3+2]).applyMatrix4(scan.axis.matrixWorld);
+        const dist = _w.distanceTo(raycaster.ray.origin);
+        if (best && dist >= best.dist) continue;
+        if (pointHidden(scan, i, _w)) continue;
+        best = { scan, i, dist, world:_w.clone() };
+      }
+    }
+  }
+  return best;
+}
+
+/* ============================== measures ============================== */
+
+const measureGroup = new THREE.Group();
+overlay.add(measureGroup);
+const markerMat = new THREE.PointsMaterial({ color:BLUE, size:9, sizeAttenuation:false, depthTest:false });
+const measureMat = new LineMaterial({ color:BLUE, linewidth:2, worldUnits:false, depthTest:false });
+const measures = [];
+let pending = null;
+
+function markerAt(p){
+  const g = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([p.x, p.y, p.z], 3));
+  const o = new THREE.Points(g, markerMat); o.renderOrder = 10; measureGroup.add(o); return o;
+}
+function lineThrough(pts){
+  const g = new LineGeometry().setPositions(pts.flatMap(p => [p.x, p.y, p.z]));
+  const o = new Line2(g, measureMat);
+  o.renderOrder = 9; measureGroup.add(o); return o;
+}
+function labelAt(text, pos, cls = ''){
+  const el = document.createElement('div');
+  el.className = 'mlabel ' + cls; el.textContent = text;
+  $('labels').appendChild(el);
+  return { el, pos: pos.clone() };
+}
+
+function sourceCoords(hit){
+  const s = hit.scan, i = hit.i;
+  return [0, 1, 2].map(a => s.pos[i*3+a] + s.offset[a]);
+}
+
+function measureClick(e){
+  const hit = pick(e.clientX, e.clientY);
+  if (!hit){ toast('No point there — click on the cloud'); return; }
+  const p = hit.world;
+  if (tool === 'inspect'){
+    const [X, Y, Z] = sourceCoords(hit), s = hit.scan, i = hit.i;
+    const txt = `X ${X.toFixed(3)}\nY ${Y.toFixed(3)}\nZ ${Z.toFixed(3)}\n` +
+      (s.hasRGB ? `RGB ${s.rgb[i*3]} ${s.rgb[i*3+1]} ${s.rgb[i*3+2]}` : `Intensity ${s.intensity[i]}`) +
+      (s.hasClass ? ` · class ${s.cls[i]}` : '') + (s.family[i] ? ` · family ${s.family[i]}` : '');
+    measures.push({ objs:[markerAt(p)], labels:[labelAt(txt, p, 'coords')] });
+    return;
+  }
+  if (!pending){ pending = { a:p, objs:[markerAt(p)] }; updateHint(); return; }
+  const a = pending.a, b = p, objs = [...pending.objs, markerAt(b)];
+  pending = null;
+  if (tool === 'distance'){
+    objs.push(lineThrough([a, b]));
+    measures.push({ objs, labels:[labelAt(`${a.distanceTo(b).toFixed(3)} m`, a.clone().lerp(b, 0.5))] });
+  } else {
+    const lo = a.y < b.y ? a : b, hi = a.y < b.y ? b : a;
+    const corner = new THREE.Vector3(lo.x, hi.y, lo.z);
+    objs.push(lineThrough([lo, corner, hi]));
+    measures.push({ objs, labels:[labelAt(`Δh ${(hi.y - lo.y).toFixed(3)} m`, lo.clone().lerp(corner, 0.5))] });
+  }
+  updateHint();
+}
+
+function clearMeasures(){
+  for (const m of measures){ for (const o of m.objs){ measureGroup.remove(o); o.geometry.dispose(); } for (const l of m.labels) l.el.remove(); }
+  measures.length = 0;
+  if (pending){ for (const o of pending.objs){ measureGroup.remove(o); o.geometry.dispose(); } pending = null; }
+  updateHint();
+}
+
+const _lp = new THREE.Vector3();
+function updateLabels(){
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  for (const m of measures) for (const l of m.labels){
+    _lp.copy(l.pos).project(camera);
+    if (_lp.z > 1 || _lp.z < -1){ l.el.style.display = 'none'; continue; }
+    l.el.style.display = '';
+    const x = (_lp.x + 1) / 2 * w, y = (1 - _lp.y) / 2 * h;
+    l.el.style.transform = `translate(${x + 8}px, ${y - 8}px) translateY(-100%)`;
+  }
+}
+
+/* ============================== clip box ============================== */
+
+const clipBox = new THREE.Group();
+clipBox.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1),
+  new THREE.MeshBasicMaterial({ color:BLUE, transparent:true, opacity:0.05, depthWrite:false })));
+clipBox.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
+  new THREE.LineBasicMaterial({ color:BLUE })));
+clipBox.visible = false;
+overlay.add(clipBox);
+
+function fitBox(){
+  const box = selected ? worldBox(selected) : sceneBox();
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  clipBox.position.copy(c);
+  clipBox.quaternion.identity();
+  clipBox.scale.set(size.x * 0.5 || 1, size.y * 1.02 || 1, size.z * 0.5 || 1);
+  updateClipUniform();
+}
+function updateClipUniform(){
+  clipBox.updateMatrixWorld(true);
+  shared.uClipInv.value.copy(clipBox.matrixWorld).invert();
+}
+function setClipMode(mode){
+  shared.uClipMode.value = mode;
+  if (mode && !clipBox.visible){ clipBox.visible = true; if (clipBox.scale.x === 1 && clipBox.position.lengthSq() === 0) fitBox(); }
+  clipBox.visible = mode > 0 || editBox;
+  updateClipUniform();
+  document.querySelectorAll('#clip-tabs .tab').forEach(t => t.classList.toggle('active', +t.dataset.clip === mode));
+  attachGizmo();
+}
+
+/* ============================== colour families ============================== */
+
+const fam = { count:0, colors:[], visible:[], counts:[] };
+
+function runFamilies(){
+  const list = visibleScans().filter(s => s.hasRGB);
+  if (!list.length){ toast('No visible scan has RGB colours', true); return; }
+  const k = params.k;
+  const rgbs = list.map(s => s.rgb.slice());
+  runJob({ type:'families', k, rgbs }, 'colour families', m => {
+    list.forEach((s, i) => {
+      if (!scans.has(s.id)) return;
+      s.family.set(m.segs[i]);
+      for (const nd of s.nodes) if (nd.points) nd.points.geometry.attributes.family.needsUpdate = true;
+    });
+    fam.count = m.k;
+    fam.colors = m.colors;
+    fam.counts = m.counts;
+    fam.visible = new Array(m.k).fill(true);
+    syncFamilies();
+    setColor('family');
+    toast(`${m.k} colour families across ${list.length} scan${list.length > 1 ? 's' : ''}`);
+  }, rgbs.map(a => a.buffer));
+}
+
+function syncFamilies(){
+  const vis = shared.uFamVis.value, col = shared.uFamColor.value;
+  vis.fill(1);
+  for (let i = 0; i < fam.count; i++){
+    vis[i + 1] = fam.visible[i] ? 1 : 0;
+    const c = fam.colors[i];
+    col[i + 1].set(c[0] / 255, c[1] / 255, c[2] / 255);
+  }
+  const el = $('palette');
+  el.innerHTML = '';
+  const total = fam.counts.reduce((a, b) => a + b, 0) || 1;
+  fam.colors.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'fam' + (fam.visible[i] ? '' : ' off');
+    b.style.setProperty('--c', `rgb(${c.map(Math.round).join(',')})`);
+    b.title = `Family ${i + 1} — ${(fam.counts[i] / total * 100).toFixed(1)} % of points · click hides, Shift-click isolates`;
+    b.setAttribute('aria-label', b.title);
+    b.onclick = e => {
+      if (e.shiftKey) fam.visible = fam.visible.map((_, j) => j === i);
+      else fam.visible[i] = !fam.visible[i];
+      syncFamilies();
+    };
+    el.appendChild(b);
+  });
+  const shown = fam.counts.reduce((s, v, i) => s + (fam.visible[i] ? v : 0), 0);
+  $('famstats').textContent = fam.count ? `${fam.visible.filter(Boolean).length} of ${fam.count} families · ${Math.round(shown / total * 100)} % of points shown` : '';
+}
+
+// every visible family of every visible scan becomes a scan of its own
+function splitFamilies(){
+  if (!fam.count){ toast('Find colour families first', true); return; }
+  const list = visibleScans();
+  let made = 0;
+  for (const scan of list){
+    for (let f = 1; f <= fam.count; f++){
+      if (!fam.visible[f - 1]) continue;
+      let n = 0;
+      for (let i = 0; i < scan.n; i++) if (scan.family[i] === f) n++;
+      if (n < 50) continue;
+      subsetScan(scan, i => scan.family[i] === f, n, `${scan.name} · ${f}`);
+      made++;
+    }
+    scan.visible = false;
+  }
+  if (!made){ toast('Nothing to split — every family is hidden', true); return; }
+  select(null);
+  refreshUI();
+  toast(`Splitting into ${made} fragments — select one and move it with the gizmo`);
+}
+
+function subsetScan(scan, keep, n, name, hideParent = false){
+  const pos = new Float32Array(n * 3), rgb = new Uint8Array(n * 3), inten = new Uint16Array(n), cls = new Uint8Array(n), family = new Uint8Array(n);
+  let j = 0;
+  for (let i = 0; i < scan.n; i++){
+    if (!keep(i)) continue;
+    pos[j*3] = scan.pos[i*3]; pos[j*3+1] = scan.pos[i*3+1]; pos[j*3+2] = scan.pos[i*3+2];
+    rgb[j*3] = scan.rgb[i*3]; rgb[j*3+1] = scan.rgb[i*3+1]; rgb[j*3+2] = scan.rgb[i*3+2];
+    inten[j] = scan.intensity[i]; cls[j] = scan.cls[i]; family[j] = scan.family[i];
+    j++;
+  }
+  const raw = { n:j, pos, rgb: scan.hasRGB ? rgb : null, intensity: scan.hasIntensity ? inten : null, cls: scan.hasClass ? cls : null,
+    family, offset: scan.offset.slice(), georef: scan.georef, upZ: scan.upZ, info: `Cut from ${scan.name}` };
+  if (!scan.hasRGB){ raw.rgb = rgb; }
+  runJob({ type:'build', raw }, name, m => {
+    m.hasRGB = scan.hasRGB;
+    addScan(m, name, { parent: scan, quiet: true, hideParent });
+  }, [pos.buffer, rgb.buffer, inten.buffer, cls.buffer, family.buffer]);
+}
+
+function clipToScan(){
+  if (!shared.uClipMode.value){ toast('Switch the clip box on first', true); return; }
+  updateClipUniform();
+  let made = 0;
+  for (const scan of visibleScans()){
+    const M = scan.axis.matrixWorld, w = new THREE.Vector3();
+    const keep = i => !pointHidden(scan, i, w.set(scan.pos[i*3], scan.pos[i*3+1], scan.pos[i*3+2]).applyMatrix4(M));
+    let n = 0;
+    for (let i = 0; i < scan.n; i++) if (keep(i)) n++;
+    if (n < 10) continue;
+    subsetScan(scan, keep, n, `${scan.name} · clip`, true);
+    made++;
+  }
+  if (!made){ toast('The clip box holds no points', true); return; }
+  setClipMode(0);
+  editBox = false;
+  attachGizmo();
+}
+
+/* ============================== export ============================== */
+
+function exportPLY(){
+  const list = visibleScans();
+  if (!list.length){ toast('Nothing visible to export', true); return; }
+  const ref = world.ref || [0, 0, 0];
+  const w = new THREE.Vector3();
+  const keepers = list.map(scan => {
+    const M = scan.axis.matrixWorld, keep = new Uint8Array(scan.n);
+    let n = 0;
+    for (let i = 0; i < scan.n; i++){
+      w.set(scan.pos[i*3], scan.pos[i*3+1], scan.pos[i*3+2]).applyMatrix4(M);
+      if (!pointHidden(scan, i, w)){ keep[i] = 1; n++; }
+    }
+    return { scan, keep, n };
+  });
+  const total = keepers.reduce((s, k) => s + k.n, 0);
+  if (!total){ toast('Every point is hidden or clipped', true); return; }
+  const header = 'ply\nformat binary_little_endian 1.0\n' +
+    'comment Points - Scan Matter export, Z up, metres\n' +
+    `comment ${list.map(s => s.name).join(' + ')}\n` +
+    `element vertex ${total}\n` +
+    'property double x\nproperty double y\nproperty double z\n' +
+    'property uchar red\nproperty uchar green\nproperty uchar blue\n' +
+    'property ushort intensity\nproperty uchar classification\nproperty uchar family\nend_header\n';
+  const head = new TextEncoder().encode(header), STRIDE = 31;
+  const buf = new ArrayBuffer(head.length + total * STRIDE), dv = new DataView(buf);
+  new Uint8Array(buf).set(head);
+  let o = head.length;
+  for (const { scan, keep } of keepers){
+    const M = scan.axis.matrixWorld;
+    for (let i = 0; i < scan.n; i++){
+      if (!keep[i]) continue;
+      w.set(scan.pos[i*3], scan.pos[i*3+1], scan.pos[i*3+2]).applyMatrix4(M);
+      dv.setFloat64(o, w.x + ref[0], true);
+      dv.setFloat64(o + 8, -w.z + ref[1], true);
+      dv.setFloat64(o + 16, w.y + ref[2], true);
+      dv.setUint8(o + 24, scan.rgb[i*3]); dv.setUint8(o + 25, scan.rgb[i*3+1]); dv.setUint8(o + 26, scan.rgb[i*3+2]);
+      dv.setUint16(o + 27, scan.intensity[i], true);
+      dv.setUint8(o + 29, scan.cls[i]); dv.setUint8(o + 30, scan.family[i]);
+      o += STRIDE;
+    }
+  }
+  download(new Blob([buf], { type:'application/octet-stream' }), 'scan-matter.ply');
+  toast(`Exported ${fmtN(total)} points as PLY`);
+}
+
+function screenshot(){
+  renderFrame();
+  renderer.domElement.toBlob(b => download(b, 'scan-matter.png'), 'image/png');
+}
+
+let recorder = null;
+function recordTurn(){
+  if (recorder){ recorder.stop(); return; }
+  if (!window.MediaRecorder){ toast('This browser cannot record video', true); return; }
+  const mime = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+  const stream = renderer.domElement.captureStream(60);
+  const chunks = [];
+  recorder = new MediaRecorder(stream, mime ? { mimeType:mime, videoBitsPerSecond:16e6 } : {});
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => {
+    const type = recorder.mimeType || 'video/webm';
+    download(new Blob(chunks, { type }), 'scan-matter-turn.' + (type.includes('mp4') ? 'mp4' : 'webm'));
+    recorder = null;
+    setTurntable(false);
+    document.body.classList.remove('recording');
+    $('btn-rec').textContent = 'Record turn';
+  };
+  setTurntable(true);
+  recorder.start();
+  document.body.classList.add('recording');
+  $('btn-rec').textContent = 'Stop';
+  const seconds = 60 / params.turnSpeed;
+  $('badge').textContent = `Recording one turn · ${Math.round(seconds)} s`;
+  setTimeout(() => recorder && recorder.stop(), seconds * 1000);
+}
+
+/* ============================== UI ============================== */
+
+function refreshUI(){
+  const any = scans.size > 0;
+  for (const id of ['step2', 'step3', 'step4']) $(id).classList.toggle('locked', !any);
+  const list = $('scanlist');
+  list.innerHTML = '';
+  for (const s of scans.values()){
+    const row = document.createElement('div');
+    row.className = 'obj-item' + (s === selected ? ' selected' : '') + (s.visible ? '' : ' hidden');
+    row.innerHTML = `<span class="marker"></span><span class="name"></span><span class="tag">${fmtN(s.n)}</span>
+      <button class="mini eye" title="show / hide">${s.visible ? '◉' : '○'}</button><button class="mini del" title="remove">×</button>`;
+    row.querySelector('.name').textContent = s.name;
+    row.onclick = () => select(s === selected ? null : s);
+    row.querySelector('.eye').onclick = e => { e.stopPropagation(); s.visible = !s.visible; if (!s.visible && s === selected) select(null); updateBoundsUniforms(); refreshUI(); };
+    row.querySelector('.del').onclick = e => { e.stopPropagation(); removeScan(s); };
+    list.appendChild(row);
+  }
+  const s = selected;
+  $('btn-up').textContent = s && !s.upZ ? 'Up: Y' : 'Up: Z';
+  $('scaninfo').innerHTML = s
+    ? `<b>${s.info}</b> · ${s.n.toLocaleString()} points` +
+      [s.hasRGB && 'RGB', s.hasIntensity && 'intensity', s.hasClass && 'classes'].filter(Boolean).map(t => ' · ' + t).join('') +
+      (s.georef ? `<br>origin ${s.offset.map(v => v.toFixed(2)).join(' / ')}` : '')
+    : '';
+  updateHint();
+}
+
+function refreshStats(){
+  const total = [...scans.values()].reduce((a, s) => a + (s.visible ? s.n : 0), 0);
+  $('stats').textContent = scans.size
+    ? `${scans.size} scan${scans.size > 1 ? 's' : ''} · ${fmtN(total)} points · ${fmtN(shownPoints)} drawn · ${shownNodes} nodes`
+    : '';
+}
+
+function updateHint(){
+  let h;
+  if (!scans.size) h = '<b>01 Load</b> — drop LAS, LAZ, PLY or XYZ files anywhere, or start from a preset · files never leave your computer';
+  else if (editBox) h = '<b>Clip box</b> — drag the gizmo · <b>G</b> move · <b>R</b> rotate · <b>X</b> scale · <b>Esc</b> done';
+  else if (tool === 'inspect') h = '<b>Point</b> — click a point to read its source coordinates, colour and class';
+  else if (tool === 'distance') h = pending ? '<b>Distance</b> — now click the <b>second</b> point' : '<b>Distance</b> — click two points';
+  else if (tool === 'height') h = pending ? '<b>Height</b> — now click the <b>second</b> point' : '<b>Height</b> — click two points for the vertical difference';
+  else if (selected) h = `<b>${selected.name}</b> — <b>G</b> move · <b>R</b> rotate · <b>X</b> scale · <b>Del</b> remove · drag empty space to orbit`;
+  else h = '<b>Navigate</b> — drag to orbit · right-drag to pan · wheel to zoom · <b>W A S D Q E</b> fly · click a scan to select it';
+  $('hint').innerHTML = h;
+}
+
+function setColor(c){
+  params.color = c;
+  document.querySelectorAll('#color-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.color === c));
+  $('ramp-tabs').style.display = c === 'height' ? '' : 'none';
+}
+
+function setTool(t){
+  tool = t;
+  if (pending) clearPending();
+  if (t !== 'select') editBox = false;
+  for (const k of ['select', 'inspect', 'distance', 'height']) $('tool-' + k).classList.toggle('active', k === t);
+  renderer.domElement.style.cursor = t === 'select' ? '' : 'crosshair';
+  attachGizmo();
+  updateHint();
+}
+function clearPending(){
+  for (const o of pending.objs){ measureGroup.remove(o); o.geometry.dispose(); }
+  pending = null;
+}
+
+function setGizmoMode(mode){
+  gizmo.setMode(mode);
+  $('giz-t').classList.toggle('active', mode === 'translate');
+  $('giz-r').classList.toggle('active', mode === 'rotate');
+  $('giz-s').classList.toggle('active', mode === 'scale');
+}
+
+function setTurntable(on){
+  orbit.autoRotate = on;
+  orbit.autoRotateSpeed = params.turnSpeed;
+  $('stage-turn').classList.toggle('active', on);
+}
+
+function setBackground(bg){
+  params.background = bg;
+  document.querySelectorAll('#size-tabs [data-bg]').forEach(t => t.classList.toggle('active', t.dataset.bg === bg));
+  const at = grid.position.clone(), size = grid.userData.size;
+  makeGrid(size);
+  grid.position.copy(at);
+}
+
+// panel wiring
+document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => loadPreset(b.dataset.preset));
+document.querySelectorAll('[data-example]').forEach(b => b.onclick = () => loadURL('examples/' + b.dataset.example));
+$('btn-load').onclick = () => $('file-input').click();
+$('file-input').onchange = e => { loadFiles([...e.target.files]); e.target.value = ''; };
+$('btn-url').onclick = () => { const u = $('url-input').value.trim(); if (u) loadURL(u); };
+$('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-url').click(); });
+$('btn-clear').onclick = () => { for (const s of [...scans.values()]) removeScan(s); fam.count = 0; fam.colors = []; fam.counts = []; syncFamilies(); };
+$('giz-t').onclick = () => setGizmoMode('translate');
+$('giz-r').onclick = () => setGizmoMode('rotate');
+$('giz-s').onclick = () => setGizmoMode('scale');
+$('btn-up').onclick = () => {
+  if (!selected) return toast('Select a scan first');
+  selected.upZ = !selected.upZ;
+  selected.axis.rotation.x = selected.upZ ? -Math.PI / 2 : 0;
+  dropToGround(selected);
+  refreshUI();
+};
+function dropToGround(scan){
+  const b = worldBox(scan);
+  scan.group.position.y -= b.min.y;
+  updateBoundsUniforms();
+}
+$('btn-ground').onclick = () => selected ? dropToGround(selected) : toast('Select a scan first');
+$('btn-dup').onclick = () => {
+  if (!selected) return toast('Select a scan first');
+  const s = selected;
+  subsetScan(s, () => true, s.n, s.name + ' copy');
+};
+
+document.querySelectorAll('#color-tabs .tab').forEach(t => t.onclick = () => {
+  if (t.dataset.color === 'family' && !fam.count) toast('No families yet — use 04 Find families');
+  setColor(t.dataset.color);
+});
+document.querySelectorAll('#ramp-tabs .tab').forEach(t => t.onclick = () => {
+  params.ramp = t.dataset.ramp;
+  document.querySelectorAll('#ramp-tabs .tab').forEach(x => x.classList.toggle('active', x === t));
+});
+document.querySelectorAll('#size-tabs [data-size]').forEach(t => t.onclick = () => {
+  params.sizeMode = t.dataset.size;
+  if (params.sizeMode === 'fixed' && params.size < 1) params.size = 2;
+  syncSliders();
+  document.querySelectorAll('#size-tabs [data-size]').forEach(x => x.classList.toggle('active', x === t));
+});
+document.querySelectorAll('#size-tabs [data-bg]').forEach(t => t.onclick = () => setBackground(t.dataset.bg));
+const SHAPES = [
+  { id:'square',   code:0, scale:0.9,  name:'Square',   svg:'<rect x="3" y="3" width="10" height="10"/>' },
+  { id:'circle',   code:1, scale:1,    name:'Circle',   svg:'<circle cx="8" cy="8" r="5.5"/>' },
+  { id:'triangle', code:2, scale:1.3,  name:'Triangle', svg:'<path d="M8 2.5 14 13H2z"/>' },
+  { id:'oval',     code:3, scale:1.35, name:'Oval',     svg:'<ellipse cx="8" cy="8" rx="6.5" ry="3.5"/>' },
+  { id:'sphere',   code:4, scale:1.05, name:'Sphere — lit from the upper left',
+    svg:'<circle cx="8" cy="8" r="6"/><circle cx="5.9" cy="5.9" r="1.7" fill="#fff"/>' },
+  { id:'cube',     code:5, scale:1.15, name:'Cube — isometric',
+    svg:'<path d="M8 1.8 13.4 4.9 8 8 2.6 4.9z" opacity=".5"/><path d="M2.6 4.9 8 8v6.2L2.6 11.1z"/><path d="M13.4 4.9 8 8v6.2l5.4-3.1z" opacity=".75"/>' },
+  { id:'spike',    code:6, scale:1.7,  name:'Spike — four-pointed star', svg:'<path d="M8 .8 9.3 6.7 15.2 8 9.3 9.3 8 15.2 6.7 9.3.8 8l5.9-1.3z"/>' },
+  { id:'shard',    code:7, scale:1.45, name:'Shard — randomly turned splinters',
+    svg:'<path d="M1.5 10.5 9.5 14 5.5 2.5z"/><path d="M10 2 14.8 6.2 10.6 9.4z"/>' },
+  { id:'brush',    code:8, scale:1.9,  name:'Brush — strokes that follow a flow field',
+    svg:'<path d="M2.2 12.2C5 10.5 6.5 7 13.8 3.8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M3 6.5c2-1 3.5-1.2 5.5-.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' },
+  { id:'ring',     code:9, scale:1.1,  name:'Ring — hollow circle',
+    svg:'<circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2.4"/>' },
+];
+function setShape(id){
+  params.shape = id;
+  const s = SHAPES.find(x => x.id === id);
+  document.querySelectorAll('#shapes button').forEach(b => b.classList.toggle('active', b.dataset.shape === id));
+  $('shape-name').textContent = s.name;
+}
+for (const s of SHAPES){
+  const b = document.createElement('button');
+  b.dataset.shape = s.id;
+  b.title = s.name;
+  b.setAttribute('aria-label', s.name.split(' —')[0]);
+  b.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true">${s.svg}</svg>`;
+  b.onclick = () => setShape(s.id);
+  $('shapes').appendChild(b);
+}
+setShape(params.shape);
+$('p-grid').onchange = e => { params.grid = e.target.checked; grid.visible = params.grid; };
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => frameAll(VIEWS[b.dataset.view]));
+
+for (const t of ['select', 'inspect', 'distance', 'height']) $('tool-' + t).onclick = () => setTool(t);
+document.querySelectorAll('#clip-tabs .tab').forEach(t => t.onclick = () => setClipMode(+t.dataset.clip));
+$('btn-box-edit').onclick = () => {
+  editBox = !editBox;
+  if (editBox){ clipBox.visible = true; if (tool !== 'select') setTool('select'); if (clipBox.scale.x === 1) fitBox(); }
+  else clipBox.visible = shared.uClipMode.value > 0;
+  attachGizmo(); updateHint();
+};
+$('btn-box-fit').onclick = () => { clipBox.visible = true; fitBox(); };
+$('btn-box-apply').onclick = clipToScan;
+$('btn-measure-clear').onclick = clearMeasures;
+
+$('btn-families').onclick = runFamilies;
+$('btn-fam-all').onclick = () => { fam.visible = fam.visible.map(() => true); syncFamilies(); };
+$('btn-fam-invert').onclick = () => { fam.visible = fam.visible.map(v => !v); syncFamilies(); };
+$('btn-split').onclick = splitFamilies;
+
+$('btn-ply').onclick = exportPLY;
+$('btn-png').onclick = screenshot;
+$('btn-rec').onclick = recordTurn;
+$('btn-frame').onclick = () => frameAll();
+$('stage-frame').onclick = () => frameAll();
+$('stage-turn').onclick = () => setTurntable(!orbit.autoRotate);
+
+const sliders = [
+  ['p-size',   'o-size',   'size',      v => v.toFixed(1)],
+  ['p-budget', 'o-budget', 'budget',    v => (v / 1e6).toFixed(1) + 'M', 1e6],
+  ['p-edl',    'o-edl',    'edl',       v => v.toFixed(2)],
+  ['p-turn',   'o-turn',   'turnSpeed', v => v.toFixed(1).replace('.0', '') + ' rpm'],
+  ['p-k',      'o-k',      'k',         v => v.toFixed(0)],
+];
+for (const [id, outId, key, fmt, mul = 1] of sliders){
+  const el = $(id), out = $(outId);
+  el.addEventListener('input', () => {
+    params[key] = parseFloat(el.value) * mul; out.textContent = fmt(params[key]);
+    if (key === 'turnSpeed') orbit.autoRotateSpeed = params.turnSpeed;
+  });
+}
+function syncSliders(){
+  for (const [id, outId, key, fmt, mul = 1] of sliders){ $(id).value = params[key] / mul; $(outId).textContent = fmt(params[key]); }
+}
+
+$('btn-sheet').onclick = () => {
+  const collapsed = document.body.classList.toggle('sheet-collapsed');
+  $('btn-sheet').textContent = collapsed ? 'Show' : 'Hide';
+};
+
+// clicks in the viewport (a click is a press without a drag)
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { downAt = e.button === 0 && !gizmo.axis ? [e.clientX, e.clientY] : null; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 4) return;
+  downAt = null;
+  if (tool === 'select'){
+    if (editBox) return;
+    const hit = pick(e.clientX, e.clientY);
+    select(hit ? hit.scan : null);
+  } else measureClick(e);
+});
+
+// drag and drop
+let dragDepth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0){ dragDepth = 0; document.body.classList.remove('dragging'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  if (e.dataTransfer.files.length) loadFiles([...e.dataTransfer.files]);
+});
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if ('wasdqe'.includes(k) && k.length === 1){ keysDown.add(k); return; }
+  if (k === 'g') setGizmoMode('translate');
+  else if (k === 'r') setGizmoMode('rotate');
+  else if (k === 'x') setGizmoMode('scale');
+  else if (k === 'v') setTool('select');
+  else if (k === 'i') setTool('inspect');
+  else if (k === 'm') setTool('distance');
+  else if (k === 'h') setTool('height');
+  else if (k === 'f') frameAll();
+  else if (k === ' ' && e.target.tagName !== 'BUTTON'){ e.preventDefault(); setTurntable(!orbit.autoRotate); }
+  else if (k === 'escape'){ if (pending) clearPending(); editBox = false; clipBox.visible = shared.uClipMode.value > 0; setTool('select'); select(null); }
+  else if ((k === 'delete' || k === 'backspace') && selected) removeScan(selected);
+});
+addEventListener('keyup', e => keysDown.delete(e.key.toLowerCase()));
+addEventListener('blur', () => keysDown.clear());
+
+new ResizeObserver(resize).observe(wrap);
+
+/* ============================== main loop ============================== */
+
+let last = performance.now(), statsTimer = 0;
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  fly(dt);
+  orbit.update(dt);
+  renderFrame();
+  if ((statsTimer += dt) > 0.25){ statsTimer = 0; refreshStats(); }
+}
+
+function renderFrame(){
+  updateLOD();
+  syncUniforms();
+  const bg = params.background === 'night' ? 0x111214 : 0xffffff;
+  renderer.setClearColor(bg, 1);
+  if (params.edl > 0){
+    renderer.setRenderTarget(rt);
+    renderer.clear();
+    renderer.render(cloudScene, camera);
+    renderer.setRenderTarget(null);
+    renderer.clear();
+    renderer.render(edlScene, quadCam);
+  } else {
+    renderer.setRenderTarget(null);
+    renderer.clear();
+    renderer.render(cloudScene, camera);
+  }
+  renderer.render(overlay, camera);
+  updateLabels();
+}
+
+// console access, e.g. points.loadPreset('terrain'); points.render()
+window.points = { scans, params, camera, orbit, renderer, loadPreset, loadURL, frameAll, pick, runFamilies,
+  splitFamilies, exportPLY, render: renderFrame, setColor, setClipMode, fam };
+
+resize();
+syncSliders();
+refreshUI();
+syncFamilies();
+const q = new URLSearchParams(location.search);
+if (q.get('url')) loadURL(q.get('url'));
+else loadPreset(q.get('preset') || 'courtyard');
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
