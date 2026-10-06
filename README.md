@@ -41,6 +41,24 @@ point budget, adaptive point size, eye-dome lighting, measuring and clipping).
    (k-means in CIELAB, 2–16 families). Click a swatch to hide a family, Shift-click to
    isolate it. **Split into scans** makes every visible family of every visible scan a
    fragment of its own — select one and move it.
+   **Family edges** — morphology on the labels: *Grow* lets the visible families take
+   over neighbouring points of hidden ones, *Shrink* gives their edge points away,
+   *Clean* gives every point the most common family around it (removes speckles and
+   fringes before cutting).
+5. **05 Analyse & cut** — image-processing methods carried over to 3D: the
+   "neighbouring pixels" of a point are the points within *Radius* × the scan's point
+   spacing.
+   **Geometry** computes normals, curvature, roughness and shape (linear / planar /
+   scattered, from the covariance of each neighbourhood; sparse regions widen their
+   radius) — colour by **Curv.**, **Rough.**, **Shape**, or **Shade** by surface direction.
+   **Magic wand** floods from a clicked point through neighbours of similar colour
+   (ΔE in CIELAB ≤ *Tolerance*); Shift-click adds; **Cut** makes the patch and the rest
+   two scans. **Split into pieces** — connected components: every visible family (or
+   the whole scan) falls apart into the pieces that physically hold together.
+6. **06 Transform** — **Pixel sort**: in vertical strips the colours above a brightness
+   threshold are sorted (by brightness or hue) and laid back bottom to top, as in
+   glitch-art pixel sorting; *Restore* undoes it. **Stipple**: a new scan in which
+   dark points survive and light ones drop out, drawn as ink dots of the original size.
 
 **Output** — *Export PLY* writes every visible point — assembled, clipped, with hidden
 families left out — as binary PLY (double x y z, Z up, georeferenced, plus RGB,
@@ -125,6 +143,9 @@ points.loadPreset('terrain')
 points.loadURL('examples/arch.las')
 points.params.k = 8; points.runFamilies()
 points.splitFamilies()
+points.computeGeometry(); points.setColor('shape')
+points.splitPieces(); points.morphFamilies('clean')
+points.pixelSort(); points.stipple()
 points.exportPLY()
 points.render()            // draw one frame (e.g. when the tab is in the background)
 ```

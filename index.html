@@ -315,6 +315,9 @@
         <button class="tab" data-color="intensity">Intensity</button>
         <button class="tab" data-color="class">Class</button>
         <button class="tab" data-color="family">Family</button>
+        <button class="tab" data-color="curvature" title="needs 05 Compute geometry">Curv.</button>
+        <button class="tab" data-color="roughness" title="needs 05 Compute geometry">Rough.</button>
+        <button class="tab" data-color="shape" title="red linear · blue planar · green scattered — needs 05 Compute geometry">Shape</button>
       </div>
       <div class="tabs" id="ramp-tabs" style="display:none">
         <button class="tab active" data-ramp="ink">Ink ramp</button>
@@ -404,11 +407,96 @@
       </div>
       <div id="palette"></div>
       <div id="famstats" class="stats"></div>
+      <h3 class="mt">Family edges</h3>
+      <div class="grid3 mt">
+        <button id="btn-fam-grow" title="visible families grow into neighbouring hidden ones">Grow</button>
+        <button id="btn-fam-shrink" title="visible families give their edge points to neighbouring hidden ones">Shrink</button>
+        <button id="btn-fam-clean" title="every point takes the most common family around it — removes speckles and fringes">Clean</button>
+      </div>
       <div class="grid2 mt">
         <button id="btn-split" title="each visible family of each visible scan becomes its own scan — a fragment you can move">Split into scans</button>
         <button id="btn-fam-invert" title="swap visible and hidden families">Invert</button>
       </div>
       <p class="note">Clusters the colours of every visible scan together (k-means in CIELAB). Click a swatch to hide it, Shift-click to isolate it. <b>Split</b> turns families into fragments you can move and recombine.</p>
+    </div>
+
+    <div class="section locked" id="step5">
+      <h2><span class="num">05</span> Analyse &amp; cut</h2>
+      <div class="slider-row">
+        <label for="p-radius" title="neighbourhood radius in multiples of the scan's point spacing — used by geometry, wand and family edges">Radius</label>
+        <input type="range" id="p-radius" min="1.5" max="8" step="0.5" value="3">
+        <output id="o-radius">3×</output>
+      </div>
+      <h3>Geometry</h3>
+      <div class="grid2 mt">
+        <button id="btn-geo" class="primary" title="normals, curvature, roughness and shape for every visible scan">Compute</button>
+        <button id="btn-shade" title="light every point by its surface direction">Shade</button>
+      </div>
+      <p class="note">From each point's neighbours: <b>Curv.</b> shows edges and hollows, <b>Rough.</b> the deviation from a plane, <b>Shape</b> whether the surroundings are linear (red), planar (blue) or scattered (green).</p>
+      <h3 class="mt">Magic wand</h3>
+      <div class="slider-row mt">
+        <label for="p-tol" title="colour difference (ΔE in CIELAB) still counted as the same patch">Tolerance</label>
+        <input type="range" id="p-tol" min="2" max="40" step="1" value="8">
+        <output id="o-tol">8</output>
+      </div>
+      <div class="grid3">
+        <button id="tool-wand" title="click a point, Shift-click adds">Wand</button>
+        <button id="btn-cut" title="cut the selection out — it and the rest become two scans">Cut</button>
+        <button id="btn-sel-clear">Clear</button>
+      </div>
+      <div id="selstats" class="stats"></div>
+      <h3 class="mt">Pieces</h3>
+      <div class="sliders">
+        <div class="slider-row">
+          <label for="p-gap" title="points closer than this (in multiples of the point spacing) hold together">Gap</label>
+          <input type="range" id="p-gap" min="1.5" max="12" step="0.5" value="3">
+          <output id="o-gap">3×</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-minpts" title="smaller pieces are dropped">Min size</label>
+          <input type="range" id="p-minpts" min="50" max="5000" step="50" value="300">
+          <output id="o-minpts">300</output>
+        </div>
+      </div>
+      <button id="btn-pieces" class="primary" style="width:100%">Split into pieces</button>
+      <p class="note">Every visible family — or the whole scan, before families exist — falls apart into the pieces that physically hold together. Largest first, at most 80 per scan.</p>
+    </div>
+
+    <div class="section locked" id="step6">
+      <h2><span class="num">06</span> Transform</h2>
+      <h3>Pixel sort</h3>
+      <div class="tabs" id="sort-tabs">
+        <button class="tab active" data-sortkey="brightness">Brightness</button>
+        <button class="tab" data-sortkey="hue">Hue</button>
+      </div>
+      <div class="sliders">
+        <div class="slider-row">
+          <label for="p-strip" title="width of the vertical strips, in multiples of the point spacing">Strip</label>
+          <input type="range" id="p-strip" min="2" max="60" step="1" value="10">
+          <output id="o-strip">10×</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-thresh" title="only colours brighter than this are sorted">Threshold</label>
+          <input type="range" id="p-thresh" min="0" max="0.95" step="0.05" value="0.3">
+          <output id="o-thresh">0.30</output>
+        </div>
+      </div>
+      <div class="grid2">
+        <button id="btn-sort" class="primary">Sort colours</button>
+        <button id="btn-unsort">Restore</button>
+      </div>
+      <h3 class="mt">Stipple</h3>
+      <div class="slider-row mt">
+        <label for="p-stipple" title="how many points survive — dark areas keep the most">Density</label>
+        <input type="range" id="p-stipple" min="0.05" max="1" step="0.05" value="0.35">
+        <output id="o-stipple">0.35</output>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="p-stipcol">
+        <label for="p-stipcol">Keep <b>colours</b> (otherwise ink dots)</label>
+      </div>
+      <button id="btn-stipple" class="primary mt" style="width:100%">Stipple</button>
+      <p class="note">Glitch-art pixel sorting and engraving-like stippling, applied to every visible scan. Stipple makes a new scan — point density follows darkness.</p>
     </div>
 
     <div class="section">
@@ -475,6 +563,9 @@ onmessage = async e => {
       finish(m.id, m.raw);
     } else if (m.type === 'families'){
       families(m);
+    } else if (NEIGH[m.type]){
+      const sp = m.spacing || estimateSpacing(m.pos, m.n);
+      NEIGH[m.type](m, sp);
     }
   } catch (err){
     postMessage({ type:'error', id:m.id, message: (err && err.message) || String(err) });
@@ -762,19 +853,24 @@ function finish(id, raw){
   const { order, nodes } = buildOctree(id, pos, n, bounds);
   prog(id, 'Sorting', 0.99);
   const P = new Float32Array(n * 3), RGB = new Uint8Array(n * 3), I = new Uint16Array(n), C = new Uint8Array(n), F = new Uint8Array(n);
-  const fam = raw.family || null;
+  const fam = raw.family || null, geo = raw.geo || null, nrm = raw.nrm || null;
+  const GEO = geo ? new Uint8Array(n * 4) : null, NRM = nrm ? new Int8Array(n * 3) : null;
   for (let i = 0; i < n; i++){
     const k = order[i];
     P[i*3] = pos[k*3]; P[i*3+1] = pos[k*3+1]; P[i*3+2] = pos[k*3+2];
     RGB[i*3] = rgb[k*3]; RGB[i*3+1] = rgb[k*3+1]; RGB[i*3+2] = rgb[k*3+2];
     I[i] = inten[k]; C[i] = cls[k];
     if (fam) F[i] = fam[k];
+    if (GEO){ GEO[i*4] = geo[k*4]; GEO[i*4+1] = geo[k*4+1]; GEO[i*4+2] = geo[k*4+2]; GEO[i*4+3] = geo[k*4+3];
+      NRM[i*3] = nrm[k*3]; NRM[i*3+1] = nrm[k*3+1]; NRM[i*3+2] = nrm[k*3+2]; }
   }
+  const transfer = [P.buffer, RGB.buffer, I.buffer, C.buffer, F.buffer];
+  if (GEO) transfer.push(GEO.buffer, NRM.buffer);
   postMessage({
-    type:'built', id, n, pos:P, rgb:RGB, intensity:I, cls:C, family:F, nodes, bounds, offset, shift:c,
+    type:'built', id, n, pos:P, rgb:RGB, intensity:I, cls:C, family:F, geo:GEO, nrm:NRM, nodes, bounds, offset, shift:c,
     georef: !!raw.georef, upZ: raw.upZ !== false, hasRGB, hasIntensity, hasClass,
     intensityMax: percentile(I, n, 0.99) || 65535, info: raw.info || '',
-  }, [P.buffer, RGB.buffer, I.buffer, C.buffer, F.buffer]);
+  }, transfer);
 }
 
 function percentile(arr, n, q){
@@ -843,6 +939,306 @@ function buildOctree(id, pos, n, bounds){
   build(idx, cMin[0], cMin[1], cMin[2], size, 0);
   return { order: out, nodes };
 }
+
+/* ---------------------------------------------------------------- neighbourhoods */
+// A hashed voxel grid: points are bucketed into cubes of edge h (optionally one set of
+// cubes per family), so all neighbours within h are found in the 27 surrounding cubes.
+
+class Grid {
+  constructor(pos, n, h, keep = null, fam = null){
+    this.h = h; this.inv = 1 / h;
+    this.alloc(1 << 12);
+    const inv = this.inv, cx = new Int32Array(n), cy = new Int32Array(n), cz = new Int32Array(n);
+    let total = 0;
+    for (let i = 0; i < n; i++){
+      if (keep && !keep[i]) continue;
+      cx[i] = Math.floor(pos[i*3] * inv); cy[i] = Math.floor(pos[i*3+1] * inv); cz[i] = Math.floor(pos[i*3+2] * inv);
+      this.add(cx[i], cy[i], cz[i], fam ? fam[i] : 0);
+      total++;
+    }
+    this.start = new Int32Array(this.size);
+    let acc = 0;
+    for (let s = 0; s < this.size; s++) if (this.used[s]){ this.start[s] = acc; acc += this.cnt[s]; }
+    const cur = this.start.slice();
+    this.order = new Int32Array(total);
+    this.slotOf = new Int32Array(n).fill(-1);
+    for (let i = 0; i < n; i++){
+      if (keep && !keep[i]) continue;
+      const sl = this.find(cx[i], cy[i], cz[i], fam ? fam[i] : 0);
+      this.slotOf[i] = sl; this.order[cur[sl]++] = i;
+    }
+  }
+  alloc(size){
+    this.size = size; this.mask = size - 1; this.filled = 0;
+    this.kx = new Int32Array(size); this.ky = new Int32Array(size); this.kz = new Int32Array(size); this.kf = new Int32Array(size);
+    this.used = new Uint8Array(size); this.cnt = new Int32Array(size);
+  }
+  hash(x, y, z, f){ return ((Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791) ^ Math.imul(f, 40503)) >>> 0) & this.mask; }
+  find(x, y, z, f){
+    let s = this.hash(x, y, z, f);
+    while (this.used[s]){
+      if (this.kx[s] === x && this.ky[s] === y && this.kz[s] === z && this.kf[s] === f) return s;
+      s = (s + 1) & this.mask;
+    }
+    return -1;
+  }
+  add(x, y, z, f, count = 1){
+    if ((this.filled + 1) * 2 > this.size) this.grow();
+    let s = this.hash(x, y, z, f);
+    while (this.used[s]){
+      if (this.kx[s] === x && this.ky[s] === y && this.kz[s] === z && this.kf[s] === f){ this.cnt[s] += count; return; }
+      s = (s + 1) & this.mask;
+    }
+    this.used[s] = 1; this.kx[s] = x; this.ky[s] = y; this.kz[s] = z; this.kf[s] = f; this.cnt[s] = count; this.filled++;
+  }
+  grow(){
+    const { size, used, kx, ky, kz, kf, cnt } = this;
+    this.alloc(size * 2);
+    for (let s = 0; s < size; s++) if (used[s]) this.add(kx[s], ky[s], kz[s], kf[s], cnt[s]);
+  }
+}
+
+// indices of the points within √r2 of point i, at most max of them
+// (the cubes searched reach as far as the radius: 27 of them when r ≤ h)
+function gather(G, pos, i, r2, out, max, f = 0){
+  const x = pos[i*3], y = pos[i*3+1], z = pos[i*3+2], inv = G.inv;
+  const cx = Math.floor(x * inv), cy = Math.floor(y * inv), cz = Math.floor(z * inv);
+  const R = Math.max(1, Math.ceil(Math.sqrt(r2) * inv - 1e-9));
+  let k = 0;
+  for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++){
+    const s = G.find(cx + dx, cy + dy, cz + dz, f);
+    if (s < 0) continue;
+    for (let q = G.start[s], e = q + G.cnt[s]; q < e; q++){
+      const j = G.order[q], ax = pos[j*3] - x, ay = pos[j*3+1] - y, az = pos[j*3+2] - z;
+      if (ax*ax + ay*ay + az*az <= r2){ out[k++] = j; if (k >= max) return k; }
+    }
+  }
+  return k;
+}
+
+// average point spacing, from a sample: the distance to the 8th nearest neighbour,
+// turned into the side of the area each point covers (d8 · √(π/8))
+function estimateSpacing(pos, n){
+  const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++){ const v = pos[i*3+a]; if (v < mn[a]) mn[a] = v; if (v > mx[a]) mx[a] = v; }
+  const ex = [0, 1, 2].map(a => Math.max(mx[a] - mn[a], 1e-9)).sort((a, b) => b - a);
+  let h = 4 * Math.sqrt(ex[0] * ex[1] / n);
+  for (let attempt = 0; attempt < 4; attempt++, h *= 2){
+    const G = new Grid(pos, n, h), nb = new Int32Array(4096), d = [], dist = new Float64Array(4096);
+    for (let t = 0; t < 2000; t++){
+      const i = Math.floor(Math.random() * n), k = gather(G, pos, i, h * h, nb, 4096);
+      if (k < 9) continue;
+      for (let q = 0; q < k; q++){
+        const j = nb[q], ax = pos[j*3] - pos[i*3], ay = pos[j*3+1] - pos[i*3+1], az = pos[j*3+2] - pos[i*3+2];
+        dist[q] = ax*ax + ay*ay + az*az;
+      }
+      d.push(Math.sqrt(dist.subarray(0, k).sort()[8]));
+    }
+    if (d.length > 200){ d.sort((a, b) => a - b); return d[Math.floor(d.length / 2)] * Math.sqrt(Math.PI / 8); }
+  }
+  return h / 8;
+}
+
+const lumOf = (rgb, i) => (0.3 * rgb[i*3] + 0.59 * rgb[i*3+1] + 0.11 * rgb[i*3+2]) / 255;
+function hueOf(rgb, i){
+  const r = rgb[i*3] / 255, g = rgb[i*3+1] / 255, b = rgb[i*3+2] / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (d < 1e-6) return 0;
+  let h = mx === r ? (g - b) / d : mx === g ? 2 + (b - r) / d : 4 + (r - g) / d;
+  return ((h / 6) % 1 + 1) % 1;
+}
+let LAB5 = null;    // CIELAB of every 5-bit RGB colour
+function labTable(){
+  if (LAB5) return LAB5;
+  LAB5 = new Float32Array(32768 * 3);
+  for (let q = 0; q < 32768; q++){ const L = lab(((q >> 10) & 31) * 8 + 4, ((q >> 5) & 31) * 8 + 4, (q & 31) * 8 + 4); LAB5.set(L, q * 3); }
+  return LAB5;
+}
+const lab5 = (rgb, i) => ((rgb[i*3] >> 3) << 10) | ((rgb[i*3+1] >> 3) << 5) | (rgb[i*3+2] >> 3);
+
+// eigen decomposition of the symmetric 3×3 matrix [[a,d,e],[d,b,f],[e,f,c]]:
+// eigenvalues l1 ≥ l2 ≥ l3 and the eigenvector of l3 (the surface normal)
+const EIG = new Float64Array(6);
+function eig3(a, b, c, d, e, f){
+  const p1 = d*d + e*e + f*f, q = (a + b + c) / 3;
+  let l1, l2, l3;
+  if (p1 < 1e-30){
+    const v = [a, b, c].sort((x, y) => y - x); l1 = v[0]; l2 = v[1]; l3 = v[2];
+  } else {
+    const p = Math.sqrt(((a-q)*(a-q) + (b-q)*(b-q) + (c-q)*(c-q) + 2*p1) / 6);
+    const B0 = (a-q)/p, B1 = (b-q)/p, B2 = (c-q)/p, B3 = d/p, B4 = e/p, B5 = f/p;
+    let r = (B0*(B1*B2 - B5*B5) - B3*(B3*B2 - B5*B4) + B4*(B3*B5 - B1*B4)) / 2;
+    r = Math.max(-1, Math.min(1, r));
+    const phi = Math.acos(r) / 3;
+    l1 = q + 2*p*Math.cos(phi); l3 = q + 2*p*Math.cos(phi + 2.0943951023931953); l2 = 3*q - l1 - l3;
+  }
+  const r0x = a - l3, r0y = d, r0z = e, r1x = d, r1y = b - l3, r1z = f, r2x = e, r2y = f, r2z = c - l3;
+  let nx = r0y*r1z - r0z*r1y, ny = r0z*r1x - r0x*r1z, nz = r0x*r1y - r0y*r1x, best = nx*nx + ny*ny + nz*nz;
+  let tx = r0y*r2z - r0z*r2y, ty = r0z*r2x - r0x*r2z, tz = r0x*r2y - r0y*r2x, t = tx*tx + ty*ty + tz*tz;
+  if (t > best){ nx = tx; ny = ty; nz = tz; best = t; }
+  tx = r1y*r2z - r1z*r2y; ty = r1z*r2x - r1x*r2z; tz = r1x*r2y - r1y*r2x; t = tx*tx + ty*ty + tz*tz;
+  if (t > best){ nx = tx; ny = ty; nz = tz; best = t; }
+  const len = Math.sqrt(best) || 1;
+  if (best < 1e-30){ nx = 0; ny = 0; nz = 1; }
+  EIG[0] = l1; EIG[1] = l2; EIG[2] = l3; EIG[3] = nx / len; EIG[4] = ny / len; EIG[5] = nz / len;
+}
+
+const famKeep = (family, famVis, n) => { const k = new Uint8Array(n); for (let i = 0; i < n; i++) k[i] = famVis[family[i]] ? 1 : 0; return k; };
+
+const NEIGH = {
+  // normals, curvature, roughness and shape (linear / planar / scattered) from the
+  // covariance of each point's neighbours
+  geometry(m, sp){
+    const { id, pos, n } = m, r = m.factor * sp, r2 = r * r;
+    const G = new Grid(pos, n, r), nb = new Int32Array(256);
+    const geo = new Uint8Array(n * 4), nrm = new Int8Array(n * 3);
+    for (let i = 0; i < n; i++){
+      // sparser regions widen their neighbourhood until it holds enough points
+      let k = gather(G, pos, i, r2, nb, 256);
+      if (k < 10) k = gather(G, pos, i, r2 * 4, nb, 256);
+      if (k < 10) k = gather(G, pos, i, r2 * 16, nb, 256);
+      if ((i & 0xffff) === 0) prog(id, 'Geometry', i / n);
+      if (k < 4) continue;
+      let mx = 0, my = 0, mz = 0;
+      for (let q = 0; q < k; q++){ const j = nb[q]; mx += pos[j*3]; my += pos[j*3+1]; mz += pos[j*3+2]; }
+      mx /= k; my /= k; mz /= k;
+      let a = 0, b = 0, c = 0, d = 0, e = 0, f = 0;
+      for (let q = 0; q < k; q++){
+        const j = nb[q], x = pos[j*3] - mx, y = pos[j*3+1] - my, z = pos[j*3+2] - mz;
+        a += x*x; b += y*y; c += z*z; d += x*y; e += x*z; f += y*z;
+      }
+      eig3(a / k, b / k, c / k, d / k, e / k, f / k);
+      const l1 = Math.max(EIG[0], 1e-30), l2 = Math.max(EIG[1], 0), l3 = Math.max(EIG[2], 0), sum = l1 + l2 + l3;
+      const nx = EIG[3], ny = EIG[4], nz = EIG[5];
+      const dist = Math.abs((pos[i*3] - mx) * nx + (pos[i*3+1] - my) * ny + (pos[i*3+2] - mz) * nz);
+      geo[i*4]   = Math.min(255, l3 / sum * 3 * 255);
+      geo[i*4+1] = Math.min(255, dist / (0.25 * r) * 255);
+      geo[i*4+2] = Math.min(255, (l1 - l2) / l1 * 255);
+      geo[i*4+3] = Math.min(255, (l2 - l3) / l1 * 255);
+      nrm[i*3] = nx * 127; nrm[i*3+1] = ny * 127; nrm[i*3+2] = nz * 127;
+    }
+    postMessage({ type:'done', id, spacing:sp, geo, nrm }, [geo.buffer, nrm.buffer]);
+  },
+
+  // magic wand: grow from the seed through neighbours whose colour stays within
+  // tol (ΔE in CIELAB) of the seed colour
+  wand(m, sp){
+    const { id, pos, rgb, n, seed, family, famVis } = m, r = m.factor * sp, r2 = r * r;
+    const G = new Grid(pos, n, r, famKeep(family, famVis, n)), L = labTable(), nb = new Int32Array(512);
+    const s0 = lab5(rgb, seed) * 3, L0 = L[s0], A0 = L[s0+1], B0 = L[s0+2], tol2 = m.tol * m.tol;
+    const sel = new Uint8Array(n), queue = new Int32Array(n);
+    let head = 0, tail = 0;
+    sel[seed] = 1; queue[tail++] = seed;
+    while (head < tail){
+      const k = gather(G, pos, queue[head++], r2, nb, 512);
+      for (let q = 0; q < k; q++){
+        const j = nb[q];
+        if (sel[j]) continue;
+        const o = lab5(rgb, j) * 3, dl = L[o] - L0, da = L[o+1] - A0, db = L[o+2] - B0;
+        if (dl*dl + da*da + db*db <= tol2){ sel[j] = 1; queue[tail++] = j; }
+      }
+      if ((head & 0x3fff) === 0) prog(id, 'Selecting', Math.min(0.99, head / n * 4));
+    }
+    postMessage({ type:'done', id, spacing:sp, sel, count:tail }, [sel.buffer]);
+  },
+
+  // connected components per family: cubes of edge `gap` that touch (26-neighbourhood)
+  // and share a family belong to the same piece
+  pieces(m, sp){
+    const { id, pos, n, family, famVis, minPts, maxPieces } = m, r = m.factor * sp;
+    const keep = famKeep(family, famVis, n), G = new Grid(pos, n, r, keep, family);
+    const parent = new Int32Array(G.size);
+    for (let s = 0; s < G.size; s++) parent[s] = s;
+    const root = s => { while (parent[s] !== s){ parent[s] = parent[parent[s]]; s = parent[s]; } return s; };
+    const offs = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++)
+      if (dx > 0 || (dx === 0 && (dy > 0 || (dy === 0 && dz > 0)))) offs.push([dx, dy, dz]);
+    for (let s = 0; s < G.size; s++){
+      if (!G.used[s]) continue;
+      for (const [dx, dy, dz] of offs){
+        const t = G.find(G.kx[s] + dx, G.ky[s] + dy, G.kz[s] + dz, G.kf[s]);
+        if (t < 0) continue;
+        const a = root(s), b = root(t);
+        if (a !== b) parent[a] = b;
+      }
+    }
+    const size = new Int32Array(G.size);
+    for (let i = 0; i < n; i++) if (keep[i]) size[root(G.slotOf[i])]++;
+    const roots = [];
+    for (let s = 0; s < G.size; s++) if (size[s] >= minPts) roots.push(s);
+    roots.sort((a, b) => size[b] - size[a]);
+    roots.length = Math.min(roots.length, maxPieces);
+    const label = new Int32Array(G.size).fill(-1);
+    roots.forEach((s, p) => label[s] = p);
+    const labels = new Int32Array(n).fill(-1);
+    for (let i = 0; i < n; i++) if (keep[i]) labels[i] = label[root(G.slotOf[i])];
+    postMessage({ type:'done', id, spacing:sp, labels, count:roots.length }, [labels.buffer]);
+  },
+
+  // morphology on family labels: grow visible families into hidden ones, shrink them,
+  // or clean (every point takes the most common family around it)
+  morph(m, sp){
+    const { id, pos, n, family, famVis, op } = m, r = m.factor * sp, r2 = r * r;
+    const G = new Grid(pos, n, r), nb = new Int32Array(96), hist = new Int32Array(17);
+    const out = family.slice();
+    for (let i = 0; i < n; i++){
+      const f = family[i], vis = famVis[f];
+      if ((op === 'grow' && vis) || (op === 'shrink' && !vis)) continue;
+      const k = gather(G, pos, i, r2, nb, 96);
+      hist.fill(0);
+      for (let q = 0; q < k; q++){
+        const g = family[nb[q]];
+        if (op === 'grow' && (!famVis[g] || g === 0)) continue;
+        if (op === 'shrink' && famVis[g]) continue;
+        hist[g]++;
+      }
+      let best = -1, bc = 0;
+      for (let g = 0; g < 17; g++) if (hist[g] > bc){ bc = hist[g]; best = g; }
+      if (best < 0) continue;
+      if (op === 'clean'){ if (best !== f && bc > hist[f]) out[i] = best; }
+      else out[i] = best;
+      if ((i & 0xffff) === 0) prog(id, 'Family edges', i / n);
+    }
+    postMessage({ type:'done', id, spacing:sp, family:out }, [out.buffer]);
+  },
+
+  // pixel sorting: the scan is cut into vertical strips; inside each strip the colours
+  // above the threshold are sorted (by brightness or hue) and laid back from bottom to top
+  sort(m, sp){
+    const { id, pos, rgb, n, up, lo, key } = m, w = m.factor * sp;
+    const a1 = up === 2 ? 0 : 0, a2 = up === 2 ? 1 : 2;
+    const map = new Map(), sid = new Int32Array(n), val = new Float32Array(n);
+    let ns = 0;
+    for (let i = 0; i < n; i++){
+      const L = lumOf(rgb, i);
+      if (L < lo){ sid[i] = -1; continue; }
+      val[i] = key === 'hue' ? hueOf(rgb, i) : L;
+      const k = Math.floor(pos[i*3+a1] / w) * 2097152 + Math.floor(pos[i*3+a2] / w);
+      let s = map.get(k);
+      if (s === undefined){ s = ns++; map.set(k, s); }
+      sid[i] = s;
+    }
+    const cnt = new Int32Array(ns + 1);
+    for (let i = 0; i < n; i++) if (sid[i] >= 0) cnt[sid[i] + 1]++;
+    for (let s = 0; s < ns; s++) cnt[s + 1] += cnt[s];
+    const cur = cnt.slice(), order = new Int32Array(cnt[ns]);
+    for (let i = 0; i < n; i++) if (sid[i] >= 0) order[cur[sid[i]]++] = i;
+    const out = rgb.slice();
+    for (let s = 0; s < ns; s++){
+      const len = cnt[s + 1] - cnt[s];
+      if (len < 2) continue;
+      const idx = Array.from(order.subarray(cnt[s], cnt[s + 1]));
+      const byPos = idx.slice().sort((p, q) => pos[p*3+up] - pos[q*3+up]);
+      const byVal = idx.sort((p, q) => val[p] - val[q]);
+      for (let t = 0; t < len; t++){
+        const j = byPos[t] * 3, c = byVal[t] * 3;
+        out[j] = rgb[c]; out[j+1] = rgb[c+1]; out[j+2] = rgb[c+2];
+      }
+      if ((s & 0x3ff) === 0) prog(id, 'Sorting colours', s / ns);
+    }
+    postMessage({ type:'done', id, spacing:sp, rgb:out }, [out.buffer]);
+  },
+};
 
 /* ---------------------------------------------------------------- colour families (k-means in CIELAB) */
 
@@ -1158,7 +1554,10 @@ const MIN_NODE_PX = 90;           // nodes smaller than this on screen are not r
 
 const params = {
   budget: 3e6, size: 1.5, sizeMode: 'adaptive', shape: 'circle', color: 'rgb', ramp: 'ink',
-  edl: 0.6, edlRadius: 1.4, background: 'paper', grid: true, turnSpeed: 2, k: 6,
+  edl: 0.6, edlRadius: 1.4, background: 'paper', grid: true,
+  turnSpeed: 2, k: 6,
+  radius: 3, tol: 8, gap: 3, minPts: 300, shade: false,
+  sortKey: 'brightness', strip: 10, thresh: 0.3, stipple: 0.35, stippleColour: false,
 };
 const scans = new Map();          // id -> scan
 let nextId = 1;
@@ -1218,7 +1617,7 @@ const CLASS_COLORS = Array.from({ length:32 }, (_, i) => {
 
 const shared = {
   uSize:{ value:1.5 }, uSizeMode:{ value:1 }, uProj:{ value:1 }, uPixelRatio:{ value:1 },
-  uShape:{ value:1 }, uShapeScale:{ value:1 }, uFlowScale:{ value:1 },
+  uShade:{ value:0 }, uShape:{ value:1 }, uShapeScale:{ value:1 }, uFlowScale:{ value:1 },
   uColorMode:{ value:0 }, uRamp:{ value:0 }, uElev:{ value:new THREE.Vector2(0, 1) },
   uClassColors:{ value:CLASS_COLORS },
   uFamVis:{ value:new Array(17).fill(1) },
@@ -1231,12 +1630,16 @@ attribute vec3 rgb;
 attribute float intensity;
 attribute float classification;
 attribute float family;
+attribute float sel;
+attribute vec4 geo;
+attribute vec3 nrm;
+uniform int uHasGeo, uShade;
 uniform float uSize, uProj, uPixelRatio, uSpacing, uIntScale, uShapeScale, uFlowScale;
 uniform int uSizeMode, uColorMode, uRamp, uClipMode;
 uniform sampler2D uVisTex;
 uniform int uVnStart;
 uniform vec3 uNodeMin;
-uniform float uNodeSize, uRootSpacing;
+uniform float uNodeSize, uRootSpacing, uDotSpacing;
 uniform vec2 uElev;
 uniform vec3 uClassColors[32];
 uniform float uFamVis[17];
@@ -1300,6 +1703,7 @@ void main(){
   float px = uSize * uPixelRatio;
   if (uSizeMode == 1){
     float spacing = uSpacing / exp2(lodLevel(position));
+    if (uDotSpacing > 0.0) spacing = min(spacing, uDotSpacing);   // stippled scans keep their parent's dot size
     px = uSize * spacing * uProj / max(-mv.z, 1e-4);
   }
   gl_PointSize = clamp(px * uShapeScale, 1.0, 64.0 * uPixelRatio);
@@ -1319,7 +1723,21 @@ void main(){
     col = uClassColors[int(classification + 0.5) & 31];
   } else if (uColorMode == 4){
     col = f == 0 ? mix(rgb, vec3(0.92), 0.7) : uFamColor[f];
+  } else if (uColorMode >= 5){
+    if (uHasGeo == 0) col = vec3(0.78);
+    else if (uColorMode == 5) col = rampInk(pow(geo.x, 0.6));
+    else if (uColorMode == 6) col = rampSpectral(pow(geo.y, 0.7));
+    else {
+      float lin = geo.z, pla = geo.w, sca = max(0.0, 1.0 - lin - pla);
+      col = (lin * vec3(0.86, 0.22, 0.16) + pla * vec3(0.0, 0.184, 0.655) + sca * vec3(0.30, 0.66, 0.32)) / max(lin + pla + sca, 1e-3);
+    }
   }
+  if (uShade == 1 && uHasGeo == 1){
+    vec3 n = normalize(mat3(viewMatrix) * mat3(modelMatrix) * nrm);
+    if (n.z < 0.0) n = -n;
+    col *= 0.38 + 0.8 * max(dot(n, normalize(vec3(-0.4, 0.55, 0.75))), 0.0);
+  }
+  if (sel > 0.5) col = mix(col, vec3(0.0, 0.184, 0.655), 0.7);
   vColor = col;
 }`;
 
@@ -1376,7 +1794,7 @@ void main(){
 const VIS_W = 2048, VIS_H = 8;     // visible-node texture: up to 16384 nodes per scan
 function makeMaterial(intScale, visTex){
   return new THREE.ShaderMaterial({
-    uniforms: { ...shared, uSpacing:{ value:1 }, uIntScale:{ value:intScale }, uVisTex:{ value:visTex },
+    uniforms: { ...shared, uHasGeo:{ value:0 }, uDotSpacing:{ value:0 }, uSpacing:{ value:1 }, uIntScale:{ value:intScale }, uVisTex:{ value:visTex },
       uVnStart:{ value:0 }, uNodeMin:{ value:new THREE.Vector3() }, uNodeSize:{ value:1 }, uRootSpacing:{ value:1 } },
     vertexShader: POINT_VS, fragmentShader: POINT_FS,
   });
@@ -1406,12 +1824,14 @@ const edlMat = new THREE.ShaderMaterial({
       const vec2 off[8] = vec2[8](vec2(1,0), vec2(-1,0), vec2(0,1), vec2(0,-1),
         vec2(0.7071,0.7071), vec2(-0.7071,0.7071), vec2(0.7071,-0.7071), vec2(-0.7071,-0.7071));
       float sum = 0.0;
+      int hits = 0;
       for (int i = 0; i < 8; i++){
         float nd = texture2D(tDepth, vUv + off[i] * uRadius * uTexel).x;
-        if (nd < 1.0) sum += bg ? 100.0 : max(0.0, ld - logDepth(nd));
+        if (nd < 1.0){ hits++; sum += bg ? 100.0 : max(0.0, ld - logDepth(nd)); }
       }
+      // outline the background only along solid edges, not around isolated dots
+      if (bg && hits < 3) discard;
       float res = sum / 8.0;
-      if (bg && res == 0.0) discard;
       float shade = exp(-res * 300.0 * uStrength);
       gl_FragColor = vec4(texture2D(tColor, vUv).rgb * shade, 1.0);
       gl_FragDepth = bg ? 1.0 : d;
@@ -1558,6 +1978,8 @@ function addScan(m, name, opts){
     id: nextId++, name, n: m.n, pos: m.pos, rgb: m.rgb, intensity: m.intensity, cls: m.cls, family: m.family,
     nodes: m.nodes, bounds: m.bounds, offset: m.offset, georef: m.georef, upZ: m.upZ, info: m.info,
     hasRGB: m.hasRGB, hasIntensity: m.hasIntensity, hasClass: m.hasClass, visible: true,
+    geo: m.geo || new Uint8Array(m.n * 4), nrm: m.nrm || new Int8Array(m.n * 3), hasGeo: !!m.geo,
+    sel: new Uint8Array(m.n), selCount: 0, spacing: 0,
   };
   scan.group = new THREE.Group();
   scan.axis = new THREE.Group();
@@ -1568,6 +1990,7 @@ function addScan(m, name, opts){
   scan.visTex = new THREE.DataTexture(scan.visData, VIS_W, VIS_H, THREE.RGBAFormat);
   scan.visTex.magFilter = scan.visTex.minFilter = THREE.NearestFilter;
   scan.material = makeMaterial(65535 / Math.max(1, m.intensityMax), scan.visTex);
+  scan.material.uniforms.uHasGeo.value = scan.hasGeo ? 1 : 0;
   for (const nd of scan.nodes){
     nd.points = null;
     nd.center = new THREE.Vector3(nd.min[0] + nd.size / 2, nd.min[1] + nd.size / 2, nd.min[2] + nd.size / 2);
@@ -1659,6 +2082,9 @@ function nodePoints(scan, nd){
   g.setAttribute('intensity', new THREE.BufferAttribute(scan.intensity.subarray(s, e), 1, true));
   g.setAttribute('classification', new THREE.BufferAttribute(scan.cls.subarray(s, e), 1));
   g.setAttribute('family', new THREE.BufferAttribute(scan.family.subarray(s, e), 1));
+  g.setAttribute('sel', new THREE.BufferAttribute(scan.sel.subarray(s, e), 1));
+  g.setAttribute('geo', new THREE.BufferAttribute(scan.geo.subarray(s * 4, e * 4), 4, true));
+  g.setAttribute('nrm', new THREE.BufferAttribute(scan.nrm.subarray(s * 3, e * 3), 3, true));
   g.boundingSphere = new THREE.Sphere(nd.center.clone(), nd.radius);
   const p = new THREE.Points(g, scan.material);
   p.frustumCulled = false;
@@ -1666,6 +2092,7 @@ function nodePoints(scan, nd){
   p.onBeforeRender = () => {
     const u = scan.material.uniforms;
     u.uSpacing.value = nd.spacing * scan.scale;
+    u.uDotSpacing.value = scan.dot ? scan.dot * scan.scale : 0;
     u.uVnStart.value = nd.vn;
     u.uNodeMin.value.fromArray(nd.min);
     u.uNodeSize.value = nd.size;
@@ -1789,7 +2216,8 @@ function syncUniforms(){
   const shape = SHAPES.find(x => x.id === params.shape) || SHAPES[1];
   shared.uShape.value = shape.code;
   shared.uShapeScale.value = shape.scale;
-  shared.uColorMode.value = { rgb:0, height:1, intensity:2, class:3, family:4 }[params.color];
+  shared.uColorMode.value = { rgb:0, height:1, intensity:2, class:3, family:4, curvature:5, roughness:6, shape:7 }[params.color];
+  shared.uShade.value = params.shade ? 1 : 0;
   shared.uRamp.value = params.ramp === 'ink' ? 0 : 1;
   edlMat.uniforms.uNear.value = camera.near;
   edlMat.uniforms.uFar.value = camera.far;
@@ -2070,22 +2498,207 @@ function splitFamilies(){
 }
 
 function subsetScan(scan, keep, n, name, hideParent = false){
-  const pos = new Float32Array(n * 3), rgb = new Uint8Array(n * 3), inten = new Uint16Array(n), cls = new Uint8Array(n), family = new Uint8Array(n);
+  const idx = new Int32Array(n);
   let j = 0;
-  for (let i = 0; i < scan.n; i++){
-    if (!keep(i)) continue;
+  for (let i = 0; i < scan.n && j < n; i++) if (keep(i)) idx[j++] = i;
+  extractScan(scan, idx.subarray(0, j), name, { hideParent });
+}
+
+// a new scan from some of a scan's points (by index); it stays exactly in place
+function extractScan(scan, idx, name, opts = {}){
+  const n = idx.length, geo = scan.hasGeo;
+  const pos = new Float32Array(n * 3), rgb = new Uint8Array(n * 3), inten = new Uint16Array(n), cls = new Uint8Array(n), family = new Uint8Array(n);
+  const G = geo ? new Uint8Array(n * 4) : null, N = geo ? new Int8Array(n * 3) : null;
+  for (let j = 0; j < n; j++){
+    const i = idx[j];
     pos[j*3] = scan.pos[i*3]; pos[j*3+1] = scan.pos[i*3+1]; pos[j*3+2] = scan.pos[i*3+2];
     rgb[j*3] = scan.rgb[i*3]; rgb[j*3+1] = scan.rgb[i*3+1]; rgb[j*3+2] = scan.rgb[i*3+2];
     inten[j] = scan.intensity[i]; cls[j] = scan.cls[i]; family[j] = scan.family[i];
-    j++;
+    if (geo){
+      G[j*4] = scan.geo[i*4]; G[j*4+1] = scan.geo[i*4+1]; G[j*4+2] = scan.geo[i*4+2]; G[j*4+3] = scan.geo[i*4+3];
+      N[j*3] = scan.nrm[i*3]; N[j*3+1] = scan.nrm[i*3+1]; N[j*3+2] = scan.nrm[i*3+2];
+    }
   }
-  const raw = { n:j, pos, rgb: scan.hasRGB ? rgb : null, intensity: scan.hasIntensity ? inten : null, cls: scan.hasClass ? cls : null,
-    family, offset: scan.offset.slice(), georef: scan.georef, upZ: scan.upZ, info: `Cut from ${scan.name}` };
-  if (!scan.hasRGB){ raw.rgb = rgb; }
+  if (opts.ink) rgb.fill(params.background === 'night' ? 235 : 20);
+  const raw = { n, pos, rgb, intensity: scan.hasIntensity ? inten : null, cls: scan.hasClass ? cls : null,
+    family, geo: G, nrm: N, offset: scan.offset.slice(), georef: scan.georef, upZ: scan.upZ, info: `Cut from ${scan.name}` };
+  const transfer = [pos.buffer, rgb.buffer, inten.buffer, cls.buffer, family.buffer];
+  if (geo) transfer.push(G.buffer, N.buffer);
   runJob({ type:'build', raw }, name, m => {
-    m.hasRGB = scan.hasRGB;
-    addScan(m, name, { parent: scan, quiet: true, hideParent });
-  }, [pos.buffer, rgb.buffer, inten.buffer, cls.buffer, family.buffer]);
+    m.hasRGB = opts.ink ? true : scan.hasRGB;
+    const s = addScan(m, name, { parent: scan, quiet: true, hideParent: opts.hideParent });
+    s.spacing = opts.stipple ? 0 : scan.spacing;
+    if (opts.stipple) s.dot = scan.dot || finestSpacing(scan);
+    if (opts.onBuilt) opts.onBuilt(s);
+  }, transfer);
+}
+
+/* ============================== neighbourhood analysis ============================== */
+// Image-processing ideas carried over to 3D: the "neighbouring pixels" of a point are
+// the points within a radius (a multiple of the scan's point spacing), found in the
+// worker through a hashed voxel grid.
+
+const famVisArray = () => Uint8Array.from(shared.uFamVis.value.map(v => v > 0.5 ? 1 : 0));
+function markAttr(scan, ...names){
+  for (const nd of scan.nodes) if (nd.points) for (const a of names) nd.points.geometry.attributes[a].needsUpdate = true;
+}
+
+// sends a copy of a scan's positions (plus the extra arrays) to the worker
+function runNeigh(type, scan, label, extra, onDone){
+  const msg = { type, n: scan.n, pos: scan.pos.slice(), spacing: scan.spacing || 0, ...extra };
+  const transfer = [msg.pos.buffer];
+  for (const v of Object.values(extra)) if (ArrayBuffer.isView(v)) transfer.push(v.buffer);
+  runJob(msg, `${label} — ${scan.name}`, m => {
+    if (!scans.has(scan.id)) return;
+    if (m.spacing) scan.spacing = m.spacing;
+    onDone(m);
+  }, transfer);
+}
+
+function computeGeometry(){
+  const list = visibleScans();
+  if (!list.length) return toast('Nothing visible', true);
+  let left = list.length;
+  for (const scan of list){
+    runNeigh('geometry', scan, 'Geometry', { factor: params.radius }, m => {
+      scan.geo.set(m.geo); scan.nrm.set(m.nrm);
+      scan.hasGeo = true; scan.material.uniforms.uHasGeo.value = 1;
+      markAttr(scan, 'geo', 'nrm');
+      if (--left === 0){
+        if (params.color === 'rgb') setColor('curvature');
+        toast('Geometry ready — colour by Curv. · Rough. · Shape, or switch on Shade');
+      }
+    });
+  }
+}
+
+function setShade(on){
+  params.shade = on;
+  $('btn-shade').classList.toggle('active', on);
+  if (on && !visibleScans().some(s => s.hasGeo)) toast('Compute geometry first (05)');
+}
+
+function updateSelStats(){
+  const n = [...scans.values()].reduce((a, s) => a + s.selCount, 0);
+  $('selstats').textContent = n ? `${n.toLocaleString()} points selected` : '';
+}
+function clearSelection(){
+  for (const s of scans.values()) if (s.selCount){ s.sel.fill(0); s.selCount = 0; markAttr(s, 'sel'); }
+  updateSelStats();
+}
+
+// magic wand: flood fill through neighbours of similar colour
+function wandClick(e){
+  const hit = pick(e.clientX, e.clientY);
+  if (!hit) return toast('No point there — click on the cloud');
+  const scan = hit.scan, add = e.shiftKey;
+  runNeigh('wand', scan, 'Wand', { seed: hit.i, rgb: scan.rgb.slice(), family: scan.family.slice(), famVis: famVisArray(),
+    factor: params.radius, tol: params.tol }, m => {
+    if (!add) clearSelection();
+    let c = 0;
+    for (let i = 0; i < scan.n; i++){ if (m.sel[i]) scan.sel[i] = 1; c += scan.sel[i]; }
+    scan.selCount = c;
+    markAttr(scan, 'sel');
+    updateSelStats();
+  });
+}
+
+function cutSelection(){
+  const list = [...scans.values()].filter(s => s.selCount > 0);
+  if (!list.length) return toast('Select a patch with the wand first', true);
+  for (const scan of list){
+    const inside = new Int32Array(scan.selCount), rest = new Int32Array(scan.n - scan.selCount);
+    let a = 0, b = 0;
+    for (let i = 0; i < scan.n; i++){ if (scan.sel[i]) inside[a++] = i; else rest[b++] = i; }
+    scan.sel.fill(0); scan.selCount = 0;
+    let pending = rest.length ? 2 : 1;
+    const done = () => { if (--pending === 0) removeScan(scan); };
+    extractScan(scan, inside, `${scan.name} · cut`, { hideParent: true, onBuilt: done });
+    if (rest.length) extractScan(scan, rest, scan.name, { hideParent: true, onBuilt: done });
+  }
+  updateSelStats();
+  toast('Cut — the patch is a scan of its own now; select it and move it');
+}
+
+// connected components: every visible family falls apart into the pieces that hold together
+function splitPieces(){
+  const list = visibleScans();
+  if (!list.length) return toast('Nothing visible', true);
+  for (const scan of list){
+    runNeigh('pieces', scan, 'Pieces', { family: scan.family.slice(), famVis: famVisArray(),
+      factor: params.gap, minPts: params.minPts, maxPieces: 80 }, m => {
+      if (!m.count) return toast(`${scan.name}: no piece is larger than ${params.minPts} points`, true);
+      const counts = new Int32Array(m.count);
+      for (let i = 0; i < scan.n; i++) if (m.labels[i] >= 0) counts[m.labels[i]]++;
+      const lists = [...counts].map(c => new Int32Array(c)), fill = new Int32Array(m.count);
+      for (let i = 0; i < scan.n; i++){ const l = m.labels[i]; if (l >= 0) lists[l][fill[l]++] = i; }
+      lists.forEach((idx, p) => extractScan(scan, idx, `${scan.name} · p${p + 1}`));
+      scan.visible = false;
+      if (selected === scan) select(null);
+      refreshUI();
+      toast(`${scan.name} → ${m.count} pieces`);
+    });
+  }
+}
+
+function recountFamilies(){
+  const counts = new Array(fam.count).fill(0);
+  for (const s of visibleScans()) for (let i = 0; i < s.n; i++) if (s.family[i]) counts[s.family[i] - 1]++;
+  fam.counts = counts;
+  syncFamilies();
+}
+
+// morphology on family labels
+function morphFamilies(op){
+  if (!fam.count) return toast('Find colour families first (04)', true);
+  if (op !== 'clean' && fam.visible.every(Boolean)) return toast('Hide some families first — Grow and Shrink move the edge between visible and hidden ones', true);
+  for (const scan of visibleScans()){
+    runNeigh('morph', scan, op[0].toUpperCase() + op.slice(1), { family: scan.family.slice(), famVis: famVisArray(),
+      factor: params.radius, op }, m => {
+      scan.family.set(m.family);
+      markAttr(scan, 'family');
+      recountFamilies();
+    });
+  }
+}
+
+function pixelSort(){
+  const list = visibleScans();
+  if (!list.length) return toast('Nothing visible', true);
+  for (const scan of list){
+    runNeigh('sort', scan, 'Pixel sort', { rgb: scan.rgb.slice(), up: scan.upZ ? 2 : 1, factor: params.strip,
+      lo: params.thresh, key: params.sortKey }, m => {
+      if (!scan.rgbBackup) scan.rgbBackup = scan.rgb.slice();
+      scan.rgb.set(m.rgb);
+      markAttr(scan, 'rgb');
+      if (params.color !== 'rgb') setColor('rgb');
+    });
+  }
+}
+function restoreColours(){
+  let any = false;
+  for (const scan of scans.values()) if (scan.rgbBackup){ scan.rgb.set(scan.rgbBackup); scan.rgbBackup = null; markAttr(scan, 'rgb'); any = true; }
+  toast(any ? 'Original colours restored' : 'Nothing to restore');
+}
+
+// the spacing of a scan's deepest octree level — the size of its finest dots
+function finestSpacing(scan){
+  const leaves = scan.nodes.filter(nd => !nd.children).map(nd => nd.spacing).sort((a, b) => a - b);
+  return leaves.length ? leaves[Math.floor(leaves.length / 2)] : scan.nodes[0].spacing;
+}
+
+// stippling: dark points survive, light ones drop out
+function stipple(){
+  const list = visibleScans();
+  if (!list.length) return toast('Nothing visible', true);
+  for (const scan of list){
+    const keep = [];
+    for (let i = 0; i < scan.n; i++){
+      const L = (0.3 * scan.rgb[i*3] + 0.59 * scan.rgb[i*3+1] + 0.11 * scan.rgb[i*3+2]) / 255;
+      if (Math.random() < params.stipple * Math.pow(1 - L, 2.5) * 3) keep.push(i);
+    }
+    if (keep.length) extractScan(scan, Int32Array.from(keep), `${scan.name} · stipple`, { ink: !params.stippleColour, stipple: true, hideParent: true });
+  }
 }
 
 function clipToScan(){
@@ -2189,7 +2802,7 @@ function recordTurn(){
 
 function refreshUI(){
   const any = scans.size > 0;
-  for (const id of ['step2', 'step3', 'step4']) $(id).classList.toggle('locked', !any);
+  for (const id of ['step2', 'step3', 'step4', 'step5', 'step6']) $(id).classList.toggle('locked', !any);
   const list = $('scanlist');
   list.innerHTML = '';
   for (const s of scans.values()){
@@ -2224,6 +2837,7 @@ function updateHint(){
   let h;
   if (!scans.size) h = '<b>01 Load</b> — drop LAS, LAZ, PLY or XYZ files anywhere, or start from a preset · files never leave your computer';
   else if (editBox) h = '<b>Clip box</b> — drag the gizmo · <b>G</b> move · <b>R</b> rotate · <b>X</b> scale · <b>Esc</b> done';
+  else if (tool === 'wand') h = '<b>Wand</b> — click a point to select its colour patch · <b>Shift</b>-click adds · then <b>Cut</b>';
   else if (tool === 'inspect') h = '<b>Point</b> — click a point to read its source coordinates, colour and class';
   else if (tool === 'distance') h = pending ? '<b>Distance</b> — now click the <b>second</b> point' : '<b>Distance</b> — click two points';
   else if (tool === 'height') h = pending ? '<b>Height</b> — now click the <b>second</b> point' : '<b>Height</b> — click two points for the vertical difference';
@@ -2242,7 +2856,7 @@ function setTool(t){
   tool = t;
   if (pending) clearPending();
   if (t !== 'select') editBox = false;
-  for (const k of ['select', 'inspect', 'distance', 'height']) $('tool-' + k).classList.toggle('active', k === t);
+  for (const k of ['select', 'inspect', 'distance', 'height', 'wand']) $('tool-' + k).classList.toggle('active', k === t);
   renderer.domElement.style.cursor = t === 'select' ? '' : 'crosshair';
   attachGizmo();
   updateHint();
@@ -2305,6 +2919,7 @@ $('btn-dup').onclick = () => {
 
 document.querySelectorAll('#color-tabs .tab').forEach(t => t.onclick = () => {
   if (t.dataset.color === 'family' && !fam.count) toast('No families yet — use 04 Find families');
+  if (['curvature', 'roughness', 'shape'].includes(t.dataset.color) && !visibleScans().some(s => s.hasGeo)) toast('Compute geometry first (05)');
   setColor(t.dataset.color);
 });
 document.querySelectorAll('#ramp-tabs .tab').forEach(t => t.onclick = () => {
@@ -2354,7 +2969,7 @@ setShape(params.shape);
 $('p-grid').onchange = e => { params.grid = e.target.checked; grid.visible = params.grid; };
 document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => frameAll(VIEWS[b.dataset.view]));
 
-for (const t of ['select', 'inspect', 'distance', 'height']) $('tool-' + t).onclick = () => setTool(t);
+for (const t of ['select', 'inspect', 'distance', 'height', 'wand']) $('tool-' + t).onclick = () => setTool(t);
 document.querySelectorAll('#clip-tabs .tab').forEach(t => t.onclick = () => setClipMode(+t.dataset.clip));
 $('btn-box-edit').onclick = () => {
   editBox = !editBox;
@@ -2370,6 +2985,22 @@ $('btn-families').onclick = runFamilies;
 $('btn-fam-all').onclick = () => { fam.visible = fam.visible.map(() => true); syncFamilies(); };
 $('btn-fam-invert').onclick = () => { fam.visible = fam.visible.map(v => !v); syncFamilies(); };
 $('btn-split').onclick = splitFamilies;
+$('btn-fam-grow').onclick = () => morphFamilies('grow');
+$('btn-fam-shrink').onclick = () => morphFamilies('shrink');
+$('btn-fam-clean').onclick = () => morphFamilies('clean');
+$('btn-geo').onclick = computeGeometry;
+$('btn-shade').onclick = () => setShade(!params.shade);
+$('btn-cut').onclick = cutSelection;
+$('btn-sel-clear').onclick = clearSelection;
+$('btn-pieces').onclick = splitPieces;
+$('btn-sort').onclick = pixelSort;
+$('btn-unsort').onclick = restoreColours;
+$('btn-stipple').onclick = stipple;
+$('p-stipcol').onchange = e => params.stippleColour = e.target.checked;
+document.querySelectorAll('#sort-tabs .tab').forEach(t => t.onclick = () => {
+  params.sortKey = t.dataset.sortkey;
+  document.querySelectorAll('#sort-tabs .tab').forEach(x => x.classList.toggle('active', x === t));
+});
 
 $('btn-ply').onclick = exportPLY;
 $('btn-png').onclick = screenshot;
@@ -2384,6 +3015,13 @@ const sliders = [
   ['p-edl',    'o-edl',    'edl',       v => v.toFixed(2)],
   ['p-turn',   'o-turn',   'turnSpeed', v => v.toFixed(1).replace('.0', '') + ' rpm'],
   ['p-k',      'o-k',      'k',         v => v.toFixed(0)],
+  ['p-radius', 'o-radius', 'radius',    v => v.toFixed(1).replace('.0', '') + '×'],
+  ['p-tol',    'o-tol',    'tol',       v => v.toFixed(0)],
+  ['p-gap',    'o-gap',    'gap',       v => v.toFixed(1).replace('.0', '') + '×'],
+  ['p-minpts', 'o-minpts', 'minPts',    v => v.toFixed(0)],
+  ['p-strip',  'o-strip',  'strip',     v => v.toFixed(0) + '×'],
+  ['p-thresh', 'o-thresh', 'thresh',    v => v.toFixed(2)],
+  ['p-stipple','o-stipple','stipple',   v => v.toFixed(2)],
 ];
 for (const [id, outId, key, fmt, mul = 1] of sliders){
   const el = $(id), out = $(outId);
@@ -2411,7 +3049,8 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (editBox) return;
     const hit = pick(e.clientX, e.clientY);
     select(hit ? hit.scan : null);
-  } else measureClick(e);
+  } else if (tool === 'wand') wandClick(e);
+  else measureClick(e);
 });
 
 // drag and drop
@@ -2480,7 +3119,8 @@ function renderFrame(){
 
 // console access, e.g. points.loadPreset('terrain'); points.render()
 window.points = { scans, params, camera, orbit, renderer, loadPreset, loadURL, frameAll, pick, runFamilies,
-  splitFamilies, exportPLY, render: renderFrame, setColor, setClipMode, fam };
+  splitFamilies, exportPLY, render: renderFrame, setColor, setClipMode, fam,
+  computeGeometry, splitPieces, morphFamilies, pixelSort, restoreColours, stipple, cutSelection, setShade, jobs };
 
 resize();
 syncSliders();
