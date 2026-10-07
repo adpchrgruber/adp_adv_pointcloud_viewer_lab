@@ -66,6 +66,8 @@
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
   .grid4{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;}
+  .grid5{display:grid; grid-template-columns:repeat(5, 1fr); gap:5px;}
+  #ui .grid5 button{padding:11px 0; letter-spacing:.04em;}
   #ui .grid4 button{padding:11px 2px; letter-spacing:.06em;}
   .mt{margin-top:10px;}
 
@@ -146,6 +148,19 @@
   #ui .shape-grid button{padding:8px 0; display:grid; place-items:center;}
   #ui .shape-grid svg{width:16px; height:16px; fill:currentColor;}
   #shape-name{color:var(--ink); font-weight:700;}
+  #tex-palette{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:10px;}
+  #ui #tex-palette .texsw{padding:0; aspect-ratio:1; border:1.5px solid var(--line); background:var(--paper); overflow:hidden;}
+  #ui #tex-palette .texsw canvas{width:100%; height:100%; display:block;}
+  #ui #tex-palette .texsw:hover{background:var(--paper); border-color:var(--ink);}
+  #ui #tex-palette .texsw.active{border:2.5px solid var(--blue); background:var(--paper);}
+  #tex-name{color:var(--ink); font-weight:700;}
+  .lesson-nav{display:flex; align-items:center; gap:12px;}
+  #ui .lesson-nav button{padding:6px 12px; font-size:14px; line-height:1;}
+  #lesson-count{font-size:11px; font-weight:700; letter-spacing:.1em; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .section h3.lesson-title{font-size:15px; letter-spacing:-.01em; text-transform:none; margin:14px 0 4px;}
+  .lesson-text{color:var(--ink) !important; font-size:12px !important; line-height:1.5;}
+  .lesson-extra{color:var(--blue) !important;}
+  .lesson-extra:empty{display:none;}
   #palette{display:grid; grid-template-columns:repeat(8, 1fr); gap:4px; margin-top:12px;}
   #ui #palette button.fam{
     aspect-ratio:1; padding:0; border:1.5px solid var(--paper); background:var(--c);
@@ -251,6 +266,7 @@
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.9.6A3.5 3.5 0 1 0 8 4.5v2L4.5 3.5 8 .5z"/></svg>
     </button>
     <button id="stage-frame" title="Frame all (F)">Frame</button>
+    <button id="stage-clear" title="Remove every scan">Clear</button>
   </div>
   <div id="hint"></div>
   <div id="toast" role="status" aria-live="polite"></div>
@@ -315,9 +331,9 @@
         <button class="tab" data-color="intensity">Intensity</button>
         <button class="tab" data-color="class">Class</button>
         <button class="tab" data-color="family">Family</button>
-        <button class="tab" data-color="curvature" title="needs 05 Compute geometry">Curv.</button>
-        <button class="tab" data-color="roughness" title="needs 05 Compute geometry">Rough.</button>
-        <button class="tab" data-color="shape" title="red linear · blue planar · green scattered — needs 05 Compute geometry">Shape</button>
+        <button class="tab" data-color="depth" title="the zones or layers of 05 Depth, seen from the current camera">Depth</button>
+        <button class="tab" data-color="density" title="local point density — blue sparse, red dense">Density</button>
+        <button class="tab" data-color="level" title="octree level each point is drawn from">Level</button>
       </div>
       <div class="tabs" id="ramp-tabs" style="display:none">
         <button class="tab active" data-ramp="ink">Ink ramp</button>
@@ -349,6 +365,11 @@
       <h3 class="mt">Point shape</h3>
       <div class="shape-grid" id="shapes"></div>
       <p class="note">Shape: <span id="shape-name">Circle</span></p>
+      <div class="slider-row mt">
+        <label for="p-densvar" title="point density changes the shapes: to the right sparse areas get larger, looser, turned shapes; to the left the dense areas do">Density</label>
+        <input type="range" id="p-densvar" min="-1" max="1" step="0.05" value="0">
+        <output id="o-densvar">0</output>
+      </div>
       <div class="check-row">
         <input type="checkbox" id="p-grid" checked>
         <label for="p-grid"><b>Grid</b> on the ground</label>
@@ -370,13 +391,25 @@
     </div>
 
     <div class="section locked" id="step3">
-      <h2><span class="num">03</span> Measure &amp; clip</h2>
-      <div class="grid4">
+      <h2><span class="num">03</span> Measure, select &amp; clip</h2>
+      <div class="grid5">
         <button id="tool-select" class="active" title="key: V">Select</button>
         <button id="tool-inspect" title="key: I — source coordinates of a point">Point</button>
         <button id="tool-distance" title="key: M">Dist.</button>
         <button id="tool-height" title="key: H">Height</button>
+        <button id="tool-wand" title="magic wand — click a point to select its colour patch, Shift-click adds">Wand</button>
       </div>
+      <h3 class="mt">Wand selection</h3>
+      <div class="slider-row mt">
+        <label for="p-tol" title="colour difference (ΔE in CIELAB) still counted as the same patch">Tolerance</label>
+        <input type="range" id="p-tol" min="2" max="40" step="1" value="8">
+        <output id="o-tol">8</output>
+      </div>
+      <div class="grid2">
+        <button id="btn-cut" title="the selection and the rest become two scans">Cut selection</button>
+        <button id="btn-sel-clear">Clear selection</button>
+      </div>
+      <div id="selstats" class="stats"></div>
       <h3 class="mt">Clip box</h3>
       <div class="tabs" id="clip-tabs">
         <button class="tab active" data-clip="0">Off</button>
@@ -407,12 +440,6 @@
       </div>
       <div id="palette"></div>
       <div id="famstats" class="stats"></div>
-      <h3 class="mt">Family edges</h3>
-      <div class="grid3 mt">
-        <button id="btn-fam-grow" title="visible families grow into neighbouring hidden ones">Grow</button>
-        <button id="btn-fam-shrink" title="visible families give their edge points to neighbouring hidden ones">Shrink</button>
-        <button id="btn-fam-clean" title="every point takes the most common family around it — removes speckles and fringes">Clean</button>
-      </div>
       <div class="grid2 mt">
         <button id="btn-split" title="each visible family of each visible scan becomes its own scan — a fragment you can move">Split into scans</button>
         <button id="btn-fam-invert" title="swap visible and hidden families">Invert</button>
@@ -421,82 +448,170 @@
     </div>
 
     <div class="section locked" id="step5">
-      <h2><span class="num">05</span> Analyse &amp; cut</h2>
-      <div class="slider-row">
-        <label for="p-radius" title="neighbourhood radius in multiples of the scan's point spacing — used by geometry, wand and family edges">Radius</label>
-        <input type="range" id="p-radius" min="1.5" max="8" step="0.5" value="3">
-        <output id="o-radius">3×</output>
+      <h2><span class="num">05</span> Depth</h2>
+      <div class="grid2">
+        <button id="tool-focus" title="click a point — it becomes the focal plane">Set focus</button>
+        <button id="btn-focus-auto" title="focus on the point at the centre of the view">Focus centre</button>
       </div>
-      <h3>Geometry</h3>
-      <div class="grid2 mt">
-        <button id="btn-geo" class="primary" title="normals, curvature, roughness and shape for every visible scan">Compute</button>
-        <button id="btn-shade" title="light every point by its surface direction">Shade</button>
-      </div>
-      <p class="note">From each point's neighbours: <b>Curv.</b> shows edges and hollows, <b>Rough.</b> the deviation from a plane, <b>Shape</b> whether the surroundings are linear (red), planar (blue) or scattered (green).</p>
-      <h3 class="mt">Magic wand</h3>
-      <div class="slider-row mt">
-        <label for="p-tol" title="colour difference (ΔE in CIELAB) still counted as the same patch">Tolerance</label>
-        <input type="range" id="p-tol" min="2" max="40" step="1" value="8">
-        <output id="o-tol">8</output>
-      </div>
-      <div class="grid3">
-        <button id="tool-wand" title="click a point, Shift-click adds">Wand</button>
-        <button id="btn-cut" title="cut the selection out — it and the rest become two scans">Cut</button>
-        <button id="btn-sel-clear">Clear</button>
-      </div>
-      <div id="selstats" class="stats"></div>
-      <h3 class="mt">Pieces</h3>
+      <div id="focusstats" class="stats"></div>
       <div class="sliders">
         <div class="slider-row">
-          <label for="p-gap" title="points closer than this (in multiples of the point spacing) hold together">Gap</label>
-          <input type="range" id="p-gap" min="1.5" max="12" step="0.5" value="3">
-          <output id="o-gap">3×</output>
-        </div>
-        <div class="slider-row">
-          <label for="p-minpts" title="smaller pieces are dropped">Min size</label>
-          <input type="range" id="p-minpts" min="50" max="5000" step="50" value="300">
-          <output id="o-minpts">300</output>
+          <label for="p-dof" title="depth of the sharp zone around the focal plane, in % of the focus distance">Field</label>
+          <input type="range" id="p-dof" min="1" max="100" step="1" value="15">
+          <output id="o-dof">15%</output>
         </div>
       </div>
-      <button id="btn-pieces" class="primary" style="width:100%">Split into pieces</button>
-      <p class="note">Every visible family — or the whole scan, before families exist — falls apart into the pieces that physically hold together. Largest first, at most 80 per scan.</p>
+      <div class="tabs" id="depth-tabs">
+        <button class="tab active" data-depthmode="zones" title="foreground · in focus · background">3 zones</button>
+        <button class="tab" data-depthmode="layers" title="equal depth bands, front to back">Layers</button>
+      </div>
+      <div class="slider-row mt" id="layers-row" style="display:none">
+        <label for="p-layers" title="number of depth layers">Layers</label>
+        <input type="range" id="p-layers" min="2" max="16" step="1" value="5">
+        <output id="o-layers">5</output>
+      </div>
+      <div class="grid2 mt">
+        <button id="btn-depth-preview" title="colour by zone or layer, live from the current camera">Preview</button>
+        <button id="btn-depth-cut" class="primary" title="cut every visible scan into its zones or layers, as seen now">Cut by depth</button>
+      </div>
+      <h3 class="mt">Depth of field look</h3>
+      <div class="slider-row mt">
+        <label for="p-blur" title="how strongly points outside the sharp zone blur — 0 is off">Blur</label>
+        <input type="range" id="p-blur" min="0" max="1" step="0.05" value="0">
+        <output id="o-blur">off</output>
+      </div>
+      <p class="note">The segmentation follows the camera: the same scan seen from elsewhere splits differently. <b>Cut</b> freezes the current view — each zone or layer becomes a scan you can pull apart like a stage flat.</p>
     </div>
 
     <div class="section locked" id="step6">
-      <h2><span class="num">06</span> Transform</h2>
-      <h3>Pixel sort</h3>
-      <div class="tabs" id="sort-tabs">
-        <button class="tab active" data-sortkey="brightness">Brightness</button>
-        <button class="tab" data-sortkey="hue">Hue</button>
+      <h2><span class="num">06</span> Texture</h2>
+      <h3>Noise samples</h3>
+      <div id="tex-palette"></div>
+      <p class="note">Texture: <span id="tex-name" class="strong">none</span></p>
+      <div class="grid2 mt">
+        <button id="btn-tex-on" title="show the texture on the points (RGB colour mode)">Texture off</button>
+        <button id="btn-tex-load" title="any image — a photo, a drawing, a scan of a material">Own image…</button>
+      </div>
+      <h3 class="mt">Mapping</h3>
+      <div class="tabs" id="texmap-tabs">
+        <button class="tab active" data-texmode="0" title="projected from above">Top</button>
+        <button class="tab" data-texmode="1" title="projected from the front">Front</button>
+        <button class="tab" data-texmode="2" title="projected from the side">Side</button>
+        <button class="tab" data-texmode="3" title="wrapped around a vertical cylinder through the scene centre">Cylinder</button>
+        <button class="tab" data-texmode="4" title="wrapped around a sphere at the scene centre">Sphere</button>
+      </div>
+      <div class="tabs" id="texblend-tabs">
+        <button class="tab" data-texblend="0" title="the texture replaces the colour">Replace</button>
+        <button class="tab active" data-texblend="1" title="the texture darkens the colour">Multiply</button>
+        <button class="tab" data-texblend="2" title="the texture adds contrast to the colour">Overlay</button>
       </div>
       <div class="sliders">
         <div class="slider-row">
-          <label for="p-strip" title="width of the vertical strips, in multiples of the point spacing">Strip</label>
-          <input type="range" id="p-strip" min="2" max="60" step="1" value="10">
-          <output id="o-strip">10×</output>
+          <label for="p-textile" title="size of one texture tile, in % of the scene">Tile</label>
+          <input type="range" id="p-textile" min="1" max="100" step="1" value="20">
+          <output id="o-textile">20%</output>
         </div>
         <div class="slider-row">
-          <label for="p-thresh" title="only colours brighter than this are sorted">Threshold</label>
-          <input type="range" id="p-thresh" min="0" max="0.95" step="0.05" value="0.3">
-          <output id="o-thresh">0.30</output>
+          <label for="p-texstr" title="how strongly the texture is blended in">Strength</label>
+          <input type="range" id="p-texstr" min="0" max="1" step="0.05" value="0.8">
+          <output id="o-texstr">0.80</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-texthr" title="brightness that separates light from dark when cutting">Threshold</label>
+          <input type="range" id="p-texthr" min="0.05" max="0.95" step="0.05" value="0.5">
+          <output id="o-texthr">0.50</output>
         </div>
       </div>
-      <div class="grid2">
-        <button id="btn-sort" class="primary">Sort colours</button>
-        <button id="btn-unsort">Restore</button>
+      <div class="grid3">
+        <button id="btn-tex-bake" class="primary" title="write the textured colours into the scans — they export and cluster with them">Bake</button>
+        <button id="btn-tex-cut" title="cut every visible scan into its light and dark parts of the texture">Cut</button>
+        <button id="btn-tex-restore" title="bring back the colours before baking">Restore</button>
       </div>
-      <h3 class="mt">Stipple</h3>
+      <p class="note">Points have no surface to wrap an image around, so a texture is <b>projected</b> onto them. <b>Cut</b> uses the pattern as a cutting line — noise becomes fragments.</p>
+    </div>
+
+    <div class="section locked" id="step8">
+      <h2><span class="num">07</span> Line drawing</h2>
+      <p class="note">After Fritz Panzer's wire sculptures — objects redrawn 1:1 as lines in space, the volume left empty.</p>
+      <div class="grid2 mt">
+        <button id="btn-points" class="active" title="switch the point cloud on and off — key: P">Points on</button>
+        <button id="btn-lines-clear" title="remove every drawn line">Clear lines</button>
+      </div>
+      <h3 class="mt">Outlines</h3>
       <div class="slider-row mt">
-        <label for="p-stipple" title="how many points survive — dark areas keep the most">Density</label>
-        <input type="range" id="p-stipple" min="0.05" max="1" step="0.05" value="0.35">
-        <output id="o-stipple">0.35</output>
+        <label for="p-detail" title="size of the cubes the outlines are traced through, in multiples of the point spacing — smaller is finer">Detail</label>
+        <input type="range" id="p-detail" min="2" max="24" step="1" value="6">
+        <output id="o-detail">6×</output>
+      </div>
+      <div class="slider-row">
+        <label for="p-tidy" title="lines with fewer nodes than this are dropped as noise">Tidy</label>
+        <input type="range" id="p-tidy" min="2" max="60" step="1" value="20">
+        <output id="o-tidy">20</output>
       </div>
       <div class="check-row">
-        <input type="checkbox" id="p-stipcol">
-        <label for="p-stipcol">Keep <b>colours</b> (otherwise ink dots)</label>
+        <input type="checkbox" id="p-borders" checked>
+        <label for="p-borders"><b>Family borders</b> — where colour families meet</label>
       </div>
-      <button id="btn-stipple" class="primary mt" style="width:100%">Stipple</button>
-      <p class="note">Glitch-art pixel sorting and engraving-like stippling, applied to every visible scan. Stipple makes a new scan — point density follows darkness.</p>
+      <div class="check-row">
+        <input type="checkbox" id="p-edges" checked>
+        <label for="p-edges"><b>Cloud edges</b> — rims, ends and folds</label>
+      </div>
+      <button id="btn-outline" class="primary mt" style="width:100%">Draw outlines</button>
+      <h3 class="mt">Contours</h3>
+      <div class="slider-row mt">
+        <label for="p-contours" title="number of contour levels over the height of the scene">Levels</label>
+        <input type="range" id="p-contours" min="3" max="80" step="1" value="20">
+        <output id="o-contours">20</output>
+      </div>
+      <div class="grid2">
+        <button id="btn-cont-preview" title="show the contour levels on the points">Preview</button>
+        <button id="btn-contours" class="primary">Draw contours</button>
+      </div>
+      <h3 class="mt">Section</h3>
+      <div class="tabs" id="sec-tabs">
+        <button class="tab active" data-sec="off">Off</button>
+        <button class="tab" data-sec="x" title="vertical cut, across X">X</button>
+        <button class="tab" data-sec="z" title="vertical cut, across Z">Z</button>
+        <button class="tab" data-sec="y" title="horizontal cut — a plan">Plan</button>
+      </div>
+      <div class="slider-row mt">
+        <label for="p-secpos" title="position of the cutting plane across the scene">Position</label>
+        <input type="range" id="p-secpos" min="0" max="100" step="0.5" value="50">
+        <output id="o-secpos">50%</output>
+      </div>
+      <div class="grid2">
+        <button id="btn-sec-flip" title="keep the other side">Flip side</button>
+        <button id="btn-section" class="primary">Draw section</button>
+      </div>
+      <h3 class="mt">Wire</h3>
+      <div class="slider-row mt">
+        <label for="p-linew" title="line width in pixels">Width</label>
+        <input type="range" id="p-linew" min="0.5" max="6" step="0.25" value="1.5">
+        <output id="o-linew">1.5</output>
+      </div>
+      <div class="tabs" id="linecol-tabs">
+        <button class="tab active" data-linecol="ink">Ink</button>
+        <button class="tab" data-linecol="blue">Blue</button>
+        <button class="tab" data-linecol="colour" title="family colours on borders, height colours on contours">Colours</button>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="p-through" checked>
+        <label for="p-through"><b>See-through</b> — lines behind the points stay visible</label>
+      </div>
+      <button id="btn-dxf" class="mt" style="width:100%" title="every drawn line as 3D LINEs on layers OUTLINES / CONTOURS / SECTION — Z up, georeferenced">Export lines DXF</button>
+    </div>
+
+    <div class="section locked" id="step7">
+      <h2><span class="num">08</span> How point clouds work</h2>
+      <div class="lesson-nav">
+        <button id="lesson-prev" aria-label="previous lesson">‹</button>
+        <span id="lesson-count">1 / 7</span>
+        <button id="lesson-next" aria-label="next lesson">›</button>
+      </div>
+      <h3 id="lesson-title" class="lesson-title"></h3>
+      <p class="note lesson-text" id="lesson-text"></p>
+      <p class="note lesson-extra" id="lesson-extra"></p>
+      <button id="lesson-show" class="primary mt" style="width:100%">Show</button>
     </div>
 
     <div class="section">
@@ -513,6 +628,7 @@
       <h2>Credits</h2>
       <p class="note">Ideas borrowed — code written fresh for this page:</p>
       <p class="note"><b>Potree</b> (Markus Schütz, TU Wien, BSD-2) — octree level of detail with a point budget, nodes drawn by projected size, adaptive point size, eye-dome lighting pass, clip box and measuring tools.</p>
+      <p class="note"><b>Fritz Panzer</b> — artistic reference for 07: his wire sculptures, everyday objects drawn 1:1 in space.</p>
       <p class="note"><b>LidarView</b> (xtsense) — one-page viewer that reads files locally, decimation to a point buffer, colour modes, WASD fly keys, “Animate” turntable, <code>?url=</code> loading.</p>
       <p class="note"><b>Eye-dome lighting</b> — Christian Boucheny, 2009. <b>LAZ</b> — <a href="https://github.com/hobuinc/laz-perf" target="_blank" rel="noopener">laz-perf</a> (Hobu, Apache-2.0), loaded only for .laz files. <b>three.js</b> (MIT).</p>
     </div>
@@ -520,6 +636,7 @@
   </div>
 </div>
 
+<input type="file" id="tex-input" accept="image/*" hidden>
 <input type="file" id="file-input" accept=".las,.laz,.ply,.xyz,.txt,.csv,.pts,.asc" multiple hidden>
 
 <!-- ======================= worker: parsing, octree, colour families ======================= -->
@@ -853,24 +970,21 @@ function finish(id, raw){
   const { order, nodes } = buildOctree(id, pos, n, bounds);
   prog(id, 'Sorting', 0.99);
   const P = new Float32Array(n * 3), RGB = new Uint8Array(n * 3), I = new Uint16Array(n), C = new Uint8Array(n), F = new Uint8Array(n);
-  const fam = raw.family || null, geo = raw.geo || null, nrm = raw.nrm || null;
-  const GEO = geo ? new Uint8Array(n * 4) : null, NRM = nrm ? new Int8Array(n * 3) : null;
+  const fam = raw.family || null;
   for (let i = 0; i < n; i++){
     const k = order[i];
     P[i*3] = pos[k*3]; P[i*3+1] = pos[k*3+1]; P[i*3+2] = pos[k*3+2];
     RGB[i*3] = rgb[k*3]; RGB[i*3+1] = rgb[k*3+1]; RGB[i*3+2] = rgb[k*3+2];
     I[i] = inten[k]; C[i] = cls[k];
     if (fam) F[i] = fam[k];
-    if (GEO){ GEO[i*4] = geo[k*4]; GEO[i*4+1] = geo[k*4+1]; GEO[i*4+2] = geo[k*4+2]; GEO[i*4+3] = geo[k*4+3];
-      NRM[i*3] = nrm[k*3]; NRM[i*3+1] = nrm[k*3+1]; NRM[i*3+2] = nrm[k*3+2]; }
   }
-  const transfer = [P.buffer, RGB.buffer, I.buffer, C.buffer, F.buffer];
-  if (GEO) transfer.push(GEO.buffer, NRM.buffer);
+  prog(id, 'Measuring density', 0.99);
+  const spacing = estimateSpacing(P, n), D = density(P, n, spacing);
   postMessage({
-    type:'built', id, n, pos:P, rgb:RGB, intensity:I, cls:C, family:F, geo:GEO, nrm:NRM, nodes, bounds, offset, shift:c,
+    type:'built', id, n, pos:P, rgb:RGB, intensity:I, cls:C, family:F, dens:D, spacing, nodes, bounds, offset, shift:c,
     georef: !!raw.georef, upZ: raw.upZ !== false, hasRGB, hasIntensity, hasClass,
     intensityMax: percentile(I, n, 0.99) || 65535, info: raw.info || '',
-  }, transfer);
+  }, [P.buffer, RGB.buffer, I.buffer, C.buffer, F.buffer, D.buffer]);
 }
 
 function percentile(arr, n, q){
@@ -1039,14 +1153,28 @@ function estimateSpacing(pos, n){
   return h / 8;
 }
 
-const lumOf = (rgb, i) => (0.3 * rgb[i*3] + 0.59 * rgb[i*3+1] + 0.11 * rgb[i*3+2]) / 255;
-function hueOf(rgb, i){
-  const r = rgb[i*3] / 255, g = rgb[i*3+1] / 255, b = rgb[i*3+2] / 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-  if (d < 1e-6) return 0;
-  let h = mx === r ? (g - b) / d : mx === g ? 2 + (b - r) / d : 4 + (r - g) / d;
-  return ((h / 6) % 1 + 1) % 1;
+// local point density per point (0 sparse … 255 dense): points per cube of 4× the
+// spacing, averaged over the 27 cubes around it, on a log scale (2nd–98th percentile)
+function density(pos, n, sp){
+  const G = new Grid(pos, n, 4 * sp), sum = new Float32Array(G.size);
+  for (let s = 0; s < G.size; s++){
+    if (!G.used[s]) continue;
+    let t = 0;
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++){
+      const o = G.find(G.kx[s] + dx, G.ky[s] + dy, G.kz[s] + dz, 0);
+      if (o >= 0) t += G.cnt[o];
+    }
+    sum[s] = Math.log(1 + t);
+  }
+  const v = [];
+  for (let s = 0; s < G.size; s++) if (G.used[s]) v.push(sum[s]);
+  v.sort((a, b) => a - b);
+  const lo = v[Math.floor(v.length * 0.02)] || 0, hi = v[Math.floor(v.length * 0.98)] || 1;
+  const D = new Uint8Array(n), k = hi > lo ? 255 / (hi - lo) : 0;
+  for (let i = 0; i < n; i++) D[i] = Math.max(0, Math.min(255, (sum[G.slotOf[i]] - lo) * k));
+  return D;
 }
+
 let LAB5 = null;    // CIELAB of every 5-bit RGB colour
 function labTable(){
   if (LAB5) return LAB5;
@@ -1056,70 +1184,9 @@ function labTable(){
 }
 const lab5 = (rgb, i) => ((rgb[i*3] >> 3) << 10) | ((rgb[i*3+1] >> 3) << 5) | (rgb[i*3+2] >> 3);
 
-// eigen decomposition of the symmetric 3×3 matrix [[a,d,e],[d,b,f],[e,f,c]]:
-// eigenvalues l1 ≥ l2 ≥ l3 and the eigenvector of l3 (the surface normal)
-const EIG = new Float64Array(6);
-function eig3(a, b, c, d, e, f){
-  const p1 = d*d + e*e + f*f, q = (a + b + c) / 3;
-  let l1, l2, l3;
-  if (p1 < 1e-30){
-    const v = [a, b, c].sort((x, y) => y - x); l1 = v[0]; l2 = v[1]; l3 = v[2];
-  } else {
-    const p = Math.sqrt(((a-q)*(a-q) + (b-q)*(b-q) + (c-q)*(c-q) + 2*p1) / 6);
-    const B0 = (a-q)/p, B1 = (b-q)/p, B2 = (c-q)/p, B3 = d/p, B4 = e/p, B5 = f/p;
-    let r = (B0*(B1*B2 - B5*B5) - B3*(B3*B2 - B5*B4) + B4*(B3*B5 - B1*B4)) / 2;
-    r = Math.max(-1, Math.min(1, r));
-    const phi = Math.acos(r) / 3;
-    l1 = q + 2*p*Math.cos(phi); l3 = q + 2*p*Math.cos(phi + 2.0943951023931953); l2 = 3*q - l1 - l3;
-  }
-  const r0x = a - l3, r0y = d, r0z = e, r1x = d, r1y = b - l3, r1z = f, r2x = e, r2y = f, r2z = c - l3;
-  let nx = r0y*r1z - r0z*r1y, ny = r0z*r1x - r0x*r1z, nz = r0x*r1y - r0y*r1x, best = nx*nx + ny*ny + nz*nz;
-  let tx = r0y*r2z - r0z*r2y, ty = r0z*r2x - r0x*r2z, tz = r0x*r2y - r0y*r2x, t = tx*tx + ty*ty + tz*tz;
-  if (t > best){ nx = tx; ny = ty; nz = tz; best = t; }
-  tx = r1y*r2z - r1z*r2y; ty = r1z*r2x - r1x*r2z; tz = r1x*r2y - r1y*r2x; t = tx*tx + ty*ty + tz*tz;
-  if (t > best){ nx = tx; ny = ty; nz = tz; best = t; }
-  const len = Math.sqrt(best) || 1;
-  if (best < 1e-30){ nx = 0; ny = 0; nz = 1; }
-  EIG[0] = l1; EIG[1] = l2; EIG[2] = l3; EIG[3] = nx / len; EIG[4] = ny / len; EIG[5] = nz / len;
-}
-
 const famKeep = (family, famVis, n) => { const k = new Uint8Array(n); for (let i = 0; i < n; i++) k[i] = famVis[family[i]] ? 1 : 0; return k; };
 
 const NEIGH = {
-  // normals, curvature, roughness and shape (linear / planar / scattered) from the
-  // covariance of each point's neighbours
-  geometry(m, sp){
-    const { id, pos, n } = m, r = m.factor * sp, r2 = r * r;
-    const G = new Grid(pos, n, r), nb = new Int32Array(256);
-    const geo = new Uint8Array(n * 4), nrm = new Int8Array(n * 3);
-    for (let i = 0; i < n; i++){
-      // sparser regions widen their neighbourhood until it holds enough points
-      let k = gather(G, pos, i, r2, nb, 256);
-      if (k < 10) k = gather(G, pos, i, r2 * 4, nb, 256);
-      if (k < 10) k = gather(G, pos, i, r2 * 16, nb, 256);
-      if ((i & 0xffff) === 0) prog(id, 'Geometry', i / n);
-      if (k < 4) continue;
-      let mx = 0, my = 0, mz = 0;
-      for (let q = 0; q < k; q++){ const j = nb[q]; mx += pos[j*3]; my += pos[j*3+1]; mz += pos[j*3+2]; }
-      mx /= k; my /= k; mz /= k;
-      let a = 0, b = 0, c = 0, d = 0, e = 0, f = 0;
-      for (let q = 0; q < k; q++){
-        const j = nb[q], x = pos[j*3] - mx, y = pos[j*3+1] - my, z = pos[j*3+2] - mz;
-        a += x*x; b += y*y; c += z*z; d += x*y; e += x*z; f += y*z;
-      }
-      eig3(a / k, b / k, c / k, d / k, e / k, f / k);
-      const l1 = Math.max(EIG[0], 1e-30), l2 = Math.max(EIG[1], 0), l3 = Math.max(EIG[2], 0), sum = l1 + l2 + l3;
-      const nx = EIG[3], ny = EIG[4], nz = EIG[5];
-      const dist = Math.abs((pos[i*3] - mx) * nx + (pos[i*3+1] - my) * ny + (pos[i*3+2] - mz) * nz);
-      geo[i*4]   = Math.min(255, l3 / sum * 3 * 255);
-      geo[i*4+1] = Math.min(255, dist / (0.25 * r) * 255);
-      geo[i*4+2] = Math.min(255, (l1 - l2) / l1 * 255);
-      geo[i*4+3] = Math.min(255, (l2 - l3) / l1 * 255);
-      nrm[i*3] = nx * 127; nrm[i*3+1] = ny * 127; nrm[i*3+2] = nz * 127;
-    }
-    postMessage({ type:'done', id, spacing:sp, geo, nrm }, [geo.buffer, nrm.buffer]);
-  },
-
   // magic wand: grow from the seed through neighbours whose colour stays within
   // tol (ΔE in CIELAB) of the seed colour
   wand(m, sp){
@@ -1142,103 +1209,210 @@ const NEIGH = {
     postMessage({ type:'done', id, spacing:sp, sel, count:tail }, [sel.buffer]);
   },
 
-  // connected components per family: cubes of edge `gap` that touch (26-neighbourhood)
-  // and share a family belong to the same piece
-  pieces(m, sp){
-    const { id, pos, n, family, famVis, minPts, maxPieces } = m, r = m.factor * sp;
-    const keep = famKeep(family, famVis, n), G = new Grid(pos, n, r, keep, family);
-    const parent = new Int32Array(G.size);
-    for (let s = 0; s < G.size; s++) parent[s] = s;
-    const root = s => { while (parent[s] !== s){ parent[s] = parent[parent[s]]; s = parent[s]; } return s; };
-    const offs = [];
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++)
-      if (dx > 0 || (dx === 0 && (dy > 0 || (dy === 0 && dz > 0)))) offs.push([dx, dy, dz]);
-    for (let s = 0; s < G.size; s++){
-      if (!G.used[s]) continue;
-      for (const [dx, dy, dz] of offs){
-        const t = G.find(G.kx[s] + dx, G.ky[s] + dy, G.kz[s] + dz, G.kf[s]);
-        if (t < 0) continue;
-        const a = root(s), b = root(t);
-        if (a !== b) parent[a] = b;
-      }
-    }
-    const size = new Int32Array(G.size);
-    for (let i = 0; i < n; i++) if (keep[i]) size[root(G.slotOf[i])]++;
-    const roots = [];
-    for (let s = 0; s < G.size; s++) if (size[s] >= minPts) roots.push(s);
-    roots.sort((a, b) => size[b] - size[a]);
-    roots.length = Math.min(roots.length, maxPieces);
-    const label = new Int32Array(G.size).fill(-1);
-    roots.forEach((s, p) => label[s] = p);
-    const labels = new Int32Array(n).fill(-1);
-    for (let i = 0; i < n; i++) if (keep[i]) labels[i] = label[root(G.slotOf[i])];
-    postMessage({ type:'done', id, spacing:sp, labels, count:roots.length }, [labels.buffer]);
-  },
-
-  // morphology on family labels: grow visible families into hidden ones, shrink them,
-  // or clean (every point takes the most common family around it)
-  morph(m, sp){
-    const { id, pos, n, family, famVis, op } = m, r = m.factor * sp, r2 = r * r;
-    const G = new Grid(pos, n, r), nb = new Int32Array(96), hist = new Int32Array(17);
-    const out = family.slice();
-    for (let i = 0; i < n; i++){
-      const f = family[i], vis = famVis[f];
-      if ((op === 'grow' && vis) || (op === 'shrink' && !vis)) continue;
-      const k = gather(G, pos, i, r2, nb, 96);
-      hist.fill(0);
-      for (let q = 0; q < k; q++){
-        const g = family[nb[q]];
-        if (op === 'grow' && (!famVis[g] || g === 0)) continue;
-        if (op === 'shrink' && famVis[g]) continue;
-        hist[g]++;
-      }
-      let best = -1, bc = 0;
-      for (let g = 0; g < 17; g++) if (hist[g] > bc){ bc = hist[g]; best = g; }
-      if (best < 0) continue;
-      if (op === 'clean'){ if (best !== f && bc > hist[f]) out[i] = best; }
-      else out[i] = best;
-      if ((i & 0xffff) === 0) prog(id, 'Family edges', i / n);
-    }
-    postMessage({ type:'done', id, spacing:sp, family:out }, [out.buffer]);
-  },
-
-  // pixel sorting: the scan is cut into vertical strips; inside each strip the colours
-  // above the threshold are sorted (by brightness or hue) and laid back from bottom to top
-  sort(m, sp){
-    const { id, pos, rgb, n, up, lo, key } = m, w = m.factor * sp;
-    const a1 = up === 2 ? 0 : 0, a2 = up === 2 ? 1 : 2;
-    const map = new Map(), sid = new Int32Array(n), val = new Float32Array(n);
-    let ns = 0;
-    for (let i = 0; i < n; i++){
-      const L = lumOf(rgb, i);
-      if (L < lo){ sid[i] = -1; continue; }
-      val[i] = key === 'hue' ? hueOf(rgb, i) : L;
-      const k = Math.floor(pos[i*3+a1] / w) * 2097152 + Math.floor(pos[i*3+a2] / w);
-      let s = map.get(k);
-      if (s === undefined){ s = ns++; map.set(k, s); }
-      sid[i] = s;
-    }
-    const cnt = new Int32Array(ns + 1);
-    for (let i = 0; i < n; i++) if (sid[i] >= 0) cnt[sid[i] + 1]++;
-    for (let s = 0; s < ns; s++) cnt[s + 1] += cnt[s];
-    const cur = cnt.slice(), order = new Int32Array(cnt[ns]);
-    for (let i = 0; i < n; i++) if (sid[i] >= 0) order[cur[sid[i]]++] = i;
-    const out = rgb.slice();
-    for (let s = 0; s < ns; s++){
-      const len = cnt[s + 1] - cnt[s];
-      if (len < 2) continue;
-      const idx = Array.from(order.subarray(cnt[s], cnt[s + 1]));
-      const byPos = idx.slice().sort((p, q) => pos[p*3+up] - pos[q*3+up]);
-      const byVal = idx.sort((p, q) => val[p] - val[q]);
-      for (let t = 0; t < len; t++){
-        const j = byPos[t] * 3, c = byVal[t] * 3;
-        out[j] = rgb[c]; out[j+1] = rgb[c+1]; out[j+2] = rgb[c+2];
-      }
-      if ((s & 0x3ff) === 0) prog(id, 'Sorting colours', s / ns);
-    }
-    postMessage({ type:'done', id, spacing:sp, rgb:out }, [out.buffer]);
-  },
 };
+
+/* ---------------------------------------------------------------- line drawing */
+// One node per cube of edge `step` (the centroid of its points), each joined to its
+// two nearest nodes: a band of points becomes a line.
+function chainInto(P, m, step, rgb, segs, cols, minNodes = 3){
+  if (m < 2) return;
+  const G = new Grid(P, m, step), nodes = [];
+  for (let s = 0; s < G.size; s++){
+    if (!G.used[s]) continue;
+    let x = 0, y = 0, z = 0;
+    const c = G.cnt[s];
+    for (let q = G.start[s], e = q + c; q < e; q++){ const j = G.order[q]; x += P[j*3]; y += P[j*3+1]; z += P[j*3+2]; }
+    nodes.push(x / c, y / c, z / c);
+  }
+  const N = nodes.length / 3;
+  if (N < 2) return;
+  const NP = Float32Array.from(nodes), R = step * 2.2, G2 = new Grid(NP, N, R), nb = new Int32Array(128), seen = new Set();
+  const edges = [], parent = new Int32Array(N);
+  for (let i = 0; i < N; i++) parent[i] = i;
+  const root = i => { while (parent[i] !== i){ parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  for (let i = 0; i < N; i++){
+    const k = gather(G2, NP, i, R * R, nb, 128);
+    let a = -1, b = -1, da = Infinity, db = Infinity;
+    for (let q = 0; q < k; q++){
+      const j = nb[q];
+      if (j === i) continue;
+      const dx = NP[j*3] - NP[i*3], dy = NP[j*3+1] - NP[i*3+1], dz = NP[j*3+2] - NP[i*3+2], d = dx*dx + dy*dy + dz*dz;
+      if (d < da){ b = a; db = da; a = j; da = d; } else if (d < db){ b = j; db = d; }
+    }
+    for (const j of [a, b]){
+      if (j < 0) continue;
+      const key = i < j ? i * N + j : j * N + i;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push(i, j);
+      const ri = root(i), rj = root(j);
+      if (ri !== rj) parent[ri] = rj;
+    }
+  }
+  // short pieces are noise: keep only lines with at least minNodes nodes
+  const size = new Int32Array(N);
+  for (let i = 0; i < N; i++) size[root(i)]++;
+  for (let e = 0; e < edges.length; e += 2){
+    const i = edges[e], j = edges[e+1];
+    if (size[root(i)] < minNodes) continue;
+    segs.push(NP[i*3], NP[i*3+1], NP[i*3+2], NP[j*3], NP[j*3+1], NP[j*3+2]);
+    cols.push(rgb[0], rgb[1], rgb[2], rgb[0], rgb[1], rgb[2]);
+  }
+}
+function centroids(G, pos){
+  const cen = new Float32Array(G.size * 3);
+  for (let s = 0; s < G.size; s++){
+    if (!G.used[s]) continue;
+    const c = G.cnt[s];
+    for (let q = G.start[s], e = q + c; q < e; q++){ const j = G.order[q]; cen[s*3] += pos[j*3] / c; cen[s*3+1] += pos[j*3+1] / c; cen[s*3+2] += pos[j*3+2] / c; }
+  }
+  return cen;
+}
+// direction of least spread of a symmetric 3×3 matrix [[a,d,e],[d,b,f],[e,f,c]] — the
+// normal of the local surface
+function smallestAxis(a, b, c, d, e, f){
+  const p1 = d*d + e*e + f*f, q = (a + b + c) / 3;
+  let l3;
+  if (p1 < 1e-30) l3 = Math.min(a, b, c);
+  else {
+    const p = Math.sqrt(((a-q)*(a-q) + (b-q)*(b-q) + (c-q)*(c-q) + 2*p1) / 6);
+    const B0 = (a-q)/p, B1 = (b-q)/p, B2 = (c-q)/p, B3 = d/p, B4 = e/p, B5 = f/p;
+    const r = Math.max(-1, Math.min(1, (B0*(B1*B2 - B5*B5) - B3*(B3*B2 - B5*B4) + B4*(B3*B5 - B1*B4)) / 2));
+    l3 = q + 2 * p * Math.cos(Math.acos(r) / 3 + 2.0943951023931953);
+  }
+  const r0 = [a - l3, d, e], r1 = [d, b - l3, f], r2 = [e, f, c - l3];
+  const cr = (u, v) => [u[1]*v[2] - u[2]*v[1], u[2]*v[0] - u[0]*v[2], u[0]*v[1] - u[1]*v[0]];
+  let best = [0, 0, 1], bl = 0;
+  for (const v of [cr(r0, r1), cr(r0, r2), cr(r1, r2)]){
+    const l = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+    if (l > bl){ bl = l; best = v; }
+  }
+  const L = Math.sqrt(bl) || 1;
+  return bl ? [best[0] / L, best[1] / L, best[2] / L] : [0, 0, 1];
+}
+const INK_RAMP = t => t < 0.5
+  ? [0.70 + (0.0 - 0.70) * t * 2, 0.76 + (0.184 - 0.76) * t * 2, 0.90 + (0.655 - 0.90) * t * 2]
+  : [0.0 + (0.04 - 0.0) * (t * 2 - 1), 0.184 + (0.04 - 0.184) * (t * 2 - 1), 0.655 + (0.06 - 0.655) * (t * 2 - 1)];
+const doneLines = (id, sp, segs, cols) => {
+  const S = Float32Array.from(segs), C = Float32Array.from(cols);
+  postMessage({ type:'done', id, spacing:sp, segs:S, cols:C }, [S.buffer, C.buffer]);
+};
+
+Object.assign(NEIGH, {
+  // outlines: where two visible colour families meet, and where the cloud itself ends
+  outline(m, sp){
+    const { id, pos, n, family, famVis, famCol, borders, edges, tidy } = m, r = m.factor * sp;
+    const segs = [], cols = [], keep = famKeep(family, famVis, n);
+    const G = new Grid(pos, n, r, keep), cen = centroids(G, pos), S = G.size;
+    const nbr = (s, dx, dy, dz) => G.find(G.kx[s] + dx, G.ky[s] + dy, G.kz[s] + dz, 0);
+    if (borders){
+      // every cube takes its majority family, then the majority of the cubes around it
+      // (a mode filter), so speckled colour gives no borders — only coherent patches do
+      const dom = new Uint8Array(S), dom2 = new Uint8Array(S), hist = new Float64Array(17);
+      for (let s = 0; s < S; s++){
+        if (!G.used[s]) continue;
+        hist.fill(0);
+        for (let q = G.start[s], e = q + G.cnt[s]; q < e; q++) hist[family[G.order[q]]]++;
+        let best = 0; for (let f = 1; f < 17; f++) if (hist[f] > hist[best]) best = f;
+        dom[s] = best;
+      }
+      for (let s = 0; s < S; s++){
+        if (!G.used[s]) continue;
+        hist.fill(0);
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++){
+          const t = nbr(s, dx, dy, dz);
+          if (t >= 0) hist[dom[t]] += G.cnt[t] * (dx || dy || dz ? 1 : 2);
+        }
+        let best = 0; for (let f = 1; f < 17; f++) if (hist[f] > hist[best]) best = f;
+        dom2[s] = best;
+      }
+      const groups = new Map();
+      for (let s = 0; s < S; s++){
+        const f = dom2[s];
+        if (!G.used[s] || !f) continue;
+        for (const [dx, dy, dz] of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]){
+          const t = nbr(s, dx, dy, dz);
+          if (t < 0) continue;
+          const g = dom2[t];
+          if (!g || g === f) continue;
+          const key = Math.min(f, g) * 17 + Math.max(f, g);
+          let arr = groups.get(key);
+          if (!arr) groups.set(key, arr = []);
+          arr.push((cen[s*3] + cen[t*3]) / 2, (cen[s*3+1] + cen[t*3+1]) / 2, (cen[s*3+2] + cen[t*3+2]) / 2);
+        }
+        if ((s & 0x3fff) === 0) prog(id, 'Family borders', s / S * (edges ? 0.6 : 1));
+      }
+      for (const [key, arr] of groups){
+        const f = Math.floor(key / 17), g = key % 17;
+        const col = [0, 1, 2].map(a => (famCol[f*3+a] + famCol[g*3+a]) / 2);
+        chainInto(Float32Array.from(arr), arr.length / 3, r, col, segs, cols, tidy);
+      }
+    }
+    if (edges){
+      // a cube is on an edge when the points around it lie to one side of it — measured
+      // along the surface only (the offset across it, e.g. a wall's thickness, is removed)
+      const pts = [];
+      for (let s = 0; s < S; s++){
+        if (!G.used[s] || G.cnt[s] < 3) continue;
+        let mx = 0, my = 0, mz = 0, w = 0;
+        const list = [];
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++){
+          const t = nbr(s, dx, dy, dz);
+          if (t < 0) continue;
+          const c = G.cnt[t];
+          mx += cen[t*3] * c; my += cen[t*3+1] * c; mz += cen[t*3+2] * c; w += c;
+          list.push(t);
+        }
+        mx /= w; my /= w; mz /= w;
+        let a = 0, b = 0, c = 0, d = 0, e = 0, f = 0;
+        for (const t of list){
+          const k = G.cnt[t], x = cen[t*3] - mx, y = cen[t*3+1] - my, z = cen[t*3+2] - mz;
+          a += k*x*x; b += k*y*y; c += k*z*z; d += k*x*y; e += k*x*z; f += k*y*z;
+        }
+        const [nx, ny, nz] = smallestAxis(a, b, c, d, e, f);
+        let ox = mx - cen[s*3], oy = my - cen[s*3+1], oz = mz - cen[s*3+2];
+        const dn = ox * nx + oy * ny + oz * nz;
+        ox -= dn * nx; oy -= dn * ny; oz -= dn * nz;
+        if (list.length < 27 && ox*ox + oy*oy + oz*oz > 0.35 * 0.35 * r * r) pts.push(cen[s*3], cen[s*3+1], cen[s*3+2]);
+        if ((s & 0x3fff) === 0) prog(id, 'Cloud edges', 0.6 + 0.4 * s / S);
+      }
+      chainInto(Float32Array.from(pts), pts.length / 3, r, [0.06, 0.06, 0.07], segs, cols, tidy);
+    }
+    doneLines(id, sp, segs, cols);
+  },
+
+  // contour lines: the points within a thin band around each level, chained
+  contours(m, sp){
+    const { id, pos, n, M, y0, step, count, family, famVis } = m;
+    const tol = 0.9 * sp * Math.hypot(M[0], M[1], M[2]);
+    const groups = Array.from({ length: count }, () => []);
+    for (let i = 0; i < n; i++){
+      if (!famVis[family[i]]) continue;
+      const x = pos[i*3], y = pos[i*3+1], z = pos[i*3+2];
+      const q = (M[1] * x + M[5] * y + M[9] * z + M[13] - y0) / step, k = Math.round(q);
+      if (k < 1 || k > count || Math.abs(q - k) * step > tol) continue;
+      groups[k - 1].push(x, y, z);
+    }
+    const segs = [], cols = [];
+    groups.forEach((g, k) => chainInto(Float32Array.from(g), g.length / 3, 2.5 * sp, INK_RAMP(count > 1 ? k / (count - 1) : 0.5), segs, cols));
+    doneLines(id, sp, segs, cols);
+  },
+
+  // section: the points within a thin slab around the cutting plane, chained
+  section(m, sp){
+    const { id, pos, n, M, plane, family, famVis } = m;
+    const tol = 0.9 * sp * Math.hypot(M[0], M[1], M[2]), pts = [];
+    for (let i = 0; i < n; i++){
+      if (!famVis[family[i]]) continue;
+      const x = pos[i*3], y = pos[i*3+1], z = pos[i*3+2];
+      const wx = M[0]*x + M[4]*y + M[8]*z + M[12], wy = M[1]*x + M[5]*y + M[9]*z + M[13], wz = M[2]*x + M[6]*y + M[10]*z + M[14];
+      if (Math.abs(plane[0]*wx + plane[1]*wy + plane[2]*wz - plane[3]) <= tol) pts.push(x, y, z);
+    }
+    const segs = [], cols = [];
+    chainInto(Float32Array.from(pts), pts.length / 3, 2.5 * sp, [0, 0.184, 0.655], segs, cols);
+    doneLines(id, sp, segs, cols);
+  },
+});
 
 /* ---------------------------------------------------------------- colour families (k-means in CIELAB) */
 
@@ -1545,6 +1719,8 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 /* ============================== state ============================== */
 
@@ -1556,8 +1732,11 @@ const params = {
   budget: 3e6, size: 1.5, sizeMode: 'adaptive', shape: 'circle', color: 'rgb', ramp: 'ink',
   edl: 0.6, edlRadius: 1.4, background: 'paper', grid: true,
   turnSpeed: 2, k: 6,
-  radius: 3, tol: 8, gap: 3, minPts: 300, shade: false,
-  sortKey: 'brightness', strip: 10, thresh: 0.3, stipple: 0.35, stippleColour: false,
+  radius: 3, tol: 8, densVar: 0,
+  dof: 15, depthMode: 'zones', layers: 5, blur: 0,
+  texMode: 0, texBlend: 1, texTile: 20, texStrength: 0.8, texThresh: 0.5, showNodes: false,
+  showPoints: true, lineDetail: 6, lineTidy: 20, lineBorders: true, lineEdges: true, contours: 20, contPreview: false,
+  secAxis: 'off', secPos: 50, secFlip: false, lineWidth: 1.5, lineColour: 'ink', linesThrough: true,
 };
 const scans = new Map();          // id -> scan
 let nextId = 1;
@@ -1617,7 +1796,12 @@ const CLASS_COLORS = Array.from({ length:32 }, (_, i) => {
 
 const shared = {
   uSize:{ value:1.5 }, uSizeMode:{ value:1 }, uProj:{ value:1 }, uPixelRatio:{ value:1 },
-  uShade:{ value:0 }, uShape:{ value:1 }, uShapeScale:{ value:1 }, uFlowScale:{ value:1 },
+  uShape:{ value:1 }, uDensVar:{ value:0 },
+  uTexOn:{ value:0 }, uTexMode:{ value:0 }, uTexBlend:{ value:1 }, uTex:{ value:null }, uTexCenter:{ value:new THREE.Vector3() },
+  uTexTile:{ value:1 }, uTexRadius:{ value:1 }, uTexStrength:{ value:0.8 },
+  uSecOn:{ value:0 }, uSecPlane:{ value:new THREE.Vector4() }, uSecTol:{ value:0.01 },
+  uContOn:{ value:0 }, uContY0:{ value:0 }, uContStep:{ value:1 }, uContCount:{ value:20 }, uContTol:{ value:0.01 },
+  uFocusZ:{ value:10 }, uFocusHalf:{ value:1 }, uLayers:{ value:5 }, uDepthMode:{ value:0 }, uDepthRange:{ value:new THREE.Vector2(0, 1) }, uShapeScale:{ value:1 }, uFlowScale:{ value:1 },
   uColorMode:{ value:0 }, uRamp:{ value:0 }, uElev:{ value:new THREE.Vector2(0, 1) },
   uClassColors:{ value:CLASS_COLORS },
   uFamVis:{ value:new Array(17).fill(1) },
@@ -1631,15 +1815,41 @@ attribute float intensity;
 attribute float classification;
 attribute float family;
 attribute float sel;
-attribute vec4 geo;
-attribute vec3 nrm;
-uniform int uHasGeo, uShade;
+attribute float dens;
+uniform float uDensVar, uFocusZ, uFocusHalf, uLayers;
+uniform int uDepthMode;
+uniform vec2 uDepthRange;
+uniform float uNodeLevel;
+uniform int uTexOn, uTexMode, uTexBlend;
+uniform sampler2D uTex;
+uniform vec3 uTexCenter;
+uniform int uSecOn, uContOn;
+uniform vec4 uSecPlane;
+uniform float uSecTol, uContY0, uContStep, uContCount, uContTol;
+uniform float uTexTile, uTexRadius, uTexStrength;
+
+// texture coordinates of a world point: projected, or wrapped around a cylinder / sphere
+vec2 texUV(vec3 w){
+  vec3 p = w - uTexCenter;
+  if (uTexMode == 0) return p.xz / uTexTile;
+  if (uTexMode == 1) return p.xy / uTexTile;
+  if (uTexMode == 2) return p.zy / uTexTile;
+  float n = max(1.0, floor(6.2832 * uTexRadius / uTexTile + 0.5));
+  float a = atan(p.z, p.x) / 6.2832 + 0.5;
+  if (uTexMode == 3) return vec2(a * n, p.y / uTexTile);
+  float r = max(length(p), 1e-6);
+  return vec2(a * n, acos(clamp(p.y / r, -1.0, 1.0)) / 3.1416 * n * 0.5);
+}
+vec3 blendTex(vec3 b, vec3 t){
+  vec3 o = uTexBlend == 0 ? t : uTexBlend == 1 ? b * t : mix(2.0 * b * t, 1.0 - 2.0 * (1.0 - b) * (1.0 - t), step(0.5, b));
+  return mix(b, o, uTexStrength);
+}
 uniform float uSize, uProj, uPixelRatio, uSpacing, uIntScale, uShapeScale, uFlowScale;
 uniform int uSizeMode, uColorMode, uRamp, uClipMode;
 uniform sampler2D uVisTex;
 uniform int uVnStart;
 uniform vec3 uNodeMin;
-uniform float uNodeSize, uRootSpacing, uDotSpacing;
+uniform float uNodeSize, uRootSpacing;
 uniform vec2 uElev;
 uniform vec3 uClassColors[32];
 uniform float uFamVis[17];
@@ -1648,6 +1858,7 @@ uniform mat4 uClipInv;
 varying vec3 vColor;
 varying float vRand;
 varying float vAngle;
+varying float vTurn;
 
 vec3 rampInk(float t){
   t = clamp(t, 0.0, 1.0);
@@ -1696,24 +1907,38 @@ void main(){
     bool inside = all(lessThanEqual(abs(c), vec3(0.5)));
     if ((uClipMode == 1) != inside) hidden = true;
   }
+  // section: everything in front of the cutting plane goes, the cut itself is drawn
+  bool onCut = false;
+  if (uSecOn == 1){
+    float sd = dot(uSecPlane.xyz, world.xyz) - uSecPlane.w;
+    if (sd > uSecTol) hidden = true;
+    onCut = abs(sd) <= uSecTol;
+  }
   if (hidden){ gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
 
   vec4 mv = viewMatrix * world;
   gl_Position = projectionMatrix * mv;
+  // per-point random value (shards, variation) and a smooth flow field (brush strokes)
+  vRand = fract(sin(dot(position, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+
   float px = uSize * uPixelRatio;
   if (uSizeMode == 1){
     float spacing = uSpacing / exp2(lodLevel(position));
-    if (uDotSpacing > 0.0) spacing = min(spacing, uDotSpacing);   // stippled scans keep their parent's dot size
     px = uSize * spacing * uProj / max(-mv.z, 1e-4);
   }
+  // density variation: to the right sparse regions, to the left dense regions get
+  // larger, more varied and turned shapes
+  float amt = uDensVar > 0.0 ? uDensVar * (1.0 - dens) : -uDensVar * dens;
+  px *= 1.0 + amt * (0.4 + 1.6 * vRand);
+  if (onCut) px *= 1.8;
+  vTurn = amt * (vRand * 2.0 - 1.0) * 3.1416;
   gl_PointSize = clamp(px * uShapeScale, 1.0, 64.0 * uPixelRatio);
 
-  // per-point random value (shards) and a smooth flow field over the scene (brush strokes)
-  vRand = fract(sin(dot(position, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
   vec3 q = world.xyz * uFlowScale;
   vAngle = 1.3 * sin(q.x * 0.9 + 0.8 * sin(q.z * 1.3)) + 0.9 * cos(q.z * 0.8 + q.y * 0.7) + (vRand - 0.5) * 0.5;
 
   vec3 col = rgb;
+  if (uColorMode == 0 && uTexOn == 1) col = blendTex(rgb, texture2D(uTex, texUV(world.xyz)).rgb);
   if (uColorMode == 1){
     float t = (world.y - uElev.x) / max(uElev.y - uElev.x, 1e-6);
     col = uRamp == 0 ? rampInk(t) : rampSpectral(t);
@@ -1723,20 +1948,26 @@ void main(){
     col = uClassColors[int(classification + 0.5) & 31];
   } else if (uColorMode == 4){
     col = f == 0 ? mix(rgb, vec3(0.92), 0.7) : uFamColor[f];
-  } else if (uColorMode >= 5){
-    if (uHasGeo == 0) col = vec3(0.78);
-    else if (uColorMode == 5) col = rampInk(pow(geo.x, 0.6));
-    else if (uColorMode == 6) col = rampSpectral(pow(geo.y, 0.7));
-    else {
-      float lin = geo.z, pla = geo.w, sca = max(0.0, 1.0 - lin - pla);
-      col = (lin * vec3(0.86, 0.22, 0.16) + pla * vec3(0.0, 0.184, 0.655) + sca * vec3(0.30, 0.66, 0.32)) / max(lin + pla + sca, 1e-3);
+  } else if (uColorMode == 5){
+    // depth from the camera: three zones around the focal plane, or equal layers
+    float z = -mv.z;
+    if (uDepthMode == 0){
+      if (z < uFocusZ - uFocusHalf) col = mix(rgb, vec3(0.0, 0.184, 0.655), 0.7);
+      else if (z > uFocusZ + uFocusHalf) col = mix(rgb, vec3(0.88), 0.78);
+    } else {
+      float band = clamp(floor((z - uDepthRange.x) / max(uDepthRange.y - uDepthRange.x, 1e-6) * uLayers), 0.0, uLayers - 1.0);
+      col = rampInk(band / max(uLayers - 1.0, 1.0));
     }
+  } else if (uColorMode == 6){
+    col = rampSpectral(dens);
+  } else if (uColorMode == 7){
+    col = rampSpectral(min(uNodeLevel / 6.0, 1.0));
   }
-  if (uShade == 1 && uHasGeo == 1){
-    vec3 n = normalize(mat3(viewMatrix) * mat3(modelMatrix) * nrm);
-    if (n.z < 0.0) n = -n;
-    col *= 0.38 + 0.8 * max(dot(n, normalize(vec3(-0.4, 0.55, 0.75))), 0.0);
+  if (uContOn == 1){
+    float q = (world.y - uContY0) / uContStep;
+    if (q > 0.5 && q < uContCount + 0.5 && abs(fract(q + 0.5) - 0.5) * uContStep < uContTol) col = vec3(0.04, 0.04, 0.06);
   }
+  if (onCut) col = vec3(0.0, 0.184, 0.655);
   if (sel > 0.5) col = mix(col, vec3(0.0, 0.184, 0.655), 0.7);
   vColor = col;
 }`;
@@ -1747,11 +1978,13 @@ uniform int uShape;
 varying vec3 vColor;
 varying float vRand;
 varying float vAngle;
+varying float vTurn;
 vec2 rot(vec2 p, float a){ float s = sin(a), c = cos(a); return vec2(c * p.x - s * p.y, s * p.x + c * p.y); }
 float side(vec2 p, vec2 a, vec2 b){ return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x); }
 void main(){
   vec2 c = gl_PointCoord * 2.0 - 1.0;
   c.y = -c.y;
+  c = rot(c, vTurn);
   vec3 col = vColor;
   if (uShape == 1){                                   // circle
     if (dot(c, c) > 1.0) discard;
@@ -1794,7 +2027,7 @@ void main(){
 const VIS_W = 2048, VIS_H = 8;     // visible-node texture: up to 16384 nodes per scan
 function makeMaterial(intScale, visTex){
   return new THREE.ShaderMaterial({
-    uniforms: { ...shared, uHasGeo:{ value:0 }, uDotSpacing:{ value:0 }, uSpacing:{ value:1 }, uIntScale:{ value:intScale }, uVisTex:{ value:visTex },
+    uniforms: { ...shared, uNodeLevel:{ value:0 }, uSpacing:{ value:1 }, uIntScale:{ value:intScale }, uVisTex:{ value:visTex },
       uVnStart:{ value:0 }, uNodeMin:{ value:new THREE.Vector3() }, uNodeSize:{ value:1 }, uRootSpacing:{ value:1 } },
     vertexShader: POINT_VS, fragmentShader: POINT_FS,
   });
@@ -1809,14 +2042,22 @@ const edlMat = new THREE.ShaderMaterial({
   uniforms: {
     tColor:{ value:null }, tDepth:{ value:null }, uTexel:{ value:new THREE.Vector2() },
     uNear:{ value:0.1 }, uFar:{ value:1000 }, uStrength:{ value:0.6 }, uRadius:{ value:1.4 },
+    uFocusZ:{ value:10 }, uFocusHalf:{ value:1 }, uBlur:{ value:0 }, uMaxR:{ value:12 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
   fragmentShader: /* glsl */`
     uniform sampler2D tColor, tDepth;
     uniform vec2 uTexel;
-    uniform float uNear, uFar, uStrength, uRadius;
+    uniform float uNear, uFar, uStrength, uRadius, uFocusZ, uFocusHalf, uBlur, uMaxR;
     varying vec2 vUv;
-    float logDepth(float d){ return log2(uNear * uFar / (uFar - d * (uFar - uNear))); }
+    float linZ(float d){ return uNear * uFar / (uFar - d * (uFar - uNear)); }
+    float logDepth(float d){ return log2(linZ(d)); }
+    // circle of confusion in pixels: grows with the distance outside the sharp zone
+    float coc(float d){
+      float z = d >= 1.0 ? uFar : linZ(d);
+      float e = max(0.0, abs(z - uFocusZ) - uFocusHalf) / max(uFocusZ, 1e-4);
+      return clamp(e * uBlur * 4.0, 0.0, 1.0) * uMaxR;
+    }
     void main(){
       float d = texture2D(tDepth, vUv).x;
       bool bg = d >= 1.0;
@@ -1829,11 +2070,29 @@ const edlMat = new THREE.ShaderMaterial({
         float nd = texture2D(tDepth, vUv + off[i] * uRadius * uTexel).x;
         if (nd < 1.0){ hits++; sum += bg ? 100.0 : max(0.0, ld - logDepth(nd)); }
       }
-      // outline the background only along solid edges, not around isolated dots
-      if (bg && hits < 3) discard;
       float res = sum / 8.0;
       float shade = exp(-res * 300.0 * uStrength);
-      gl_FragColor = vec4(texture2D(tColor, vUv).rgb * shade, 1.0);
+      vec3 col = texture2D(tColor, vUv).rgb;
+      if (uBlur > 0.0){
+        // depth of field, gathered: a neighbour counts if its blur circle reaches this
+        // pixel, or if this pixel's own circle reaches the neighbour
+        float c0 = coc(d);
+        vec3 acc = col / max(c0 * c0, 1.0);
+        float wsum = 1.0 / max(c0 * c0, 1.0);
+        for (int i = 0; i < 40; i++){
+          float r = sqrt((float(i) + 0.5) / 40.0), a = float(i) * 2.39996;
+          vec2 o = vec2(cos(a), sin(a)) * r * uMaxR;
+          vec2 uv = vUv + o * uTexel;
+          float nd = texture2D(tDepth, uv).x, cn = coc(nd), dist = length(o);
+          if (cn >= dist || (c0 >= dist && nd >= d)){
+            float w = 1.0 / max(cn * cn, 1.0);
+            acc += texture2D(tColor, uv).rgb * w; wsum += w;
+          }
+        }
+        col = acc / wsum;
+        shade = mix(shade, 1.0, clamp(c0 / 3.0, 0.0, 1.0));
+      } else if (bg && hits < 3) discard;    // outline the background only along solid edges, not around isolated dots
+      gl_FragColor = vec4(col * shade, 1.0);
       gl_FragDepth = bg ? 1.0 : d;
     }`,
   depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth,
@@ -1862,6 +2121,7 @@ function resize(){
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   measureMat.resolution.set(w, h);
+  lineMat.resolution.set(w, h);
   makeTarget();
 }
 
@@ -1978,8 +2238,7 @@ function addScan(m, name, opts){
     id: nextId++, name, n: m.n, pos: m.pos, rgb: m.rgb, intensity: m.intensity, cls: m.cls, family: m.family,
     nodes: m.nodes, bounds: m.bounds, offset: m.offset, georef: m.georef, upZ: m.upZ, info: m.info,
     hasRGB: m.hasRGB, hasIntensity: m.hasIntensity, hasClass: m.hasClass, visible: true,
-    geo: m.geo || new Uint8Array(m.n * 4), nrm: m.nrm || new Int8Array(m.n * 3), hasGeo: !!m.geo,
-    sel: new Uint8Array(m.n), selCount: 0, spacing: 0,
+    dens: m.dens, sel: new Uint8Array(m.n), selCount: 0, spacing: m.spacing || 0,
   };
   scan.group = new THREE.Group();
   scan.axis = new THREE.Group();
@@ -1990,7 +2249,6 @@ function addScan(m, name, opts){
   scan.visTex = new THREE.DataTexture(scan.visData, VIS_W, VIS_H, THREE.RGBAFormat);
   scan.visTex.magFilter = scan.visTex.minFilter = THREE.NearestFilter;
   scan.material = makeMaterial(65535 / Math.max(1, m.intensityMax), scan.visTex);
-  scan.material.uniforms.uHasGeo.value = scan.hasGeo ? 1 : 0;
   for (const nd of scan.nodes){
     nd.points = null;
     nd.center = new THREE.Vector3(nd.min[0] + nd.size / 2, nd.min[1] + nd.size / 2, nd.min[2] + nd.size / 2);
@@ -2049,6 +2307,8 @@ function placeLikeParent(scan, parent, shift){
 }
 
 function removeScan(scan){
+  removeLineSets(scan);
+  removeNodeBoxes(scan);
   for (const nd of scan.nodes) if (nd.points){ nd.points.geometry.dispose(); }
   scan.material.dispose();
   scan.visTex.dispose();
@@ -2083,8 +2343,7 @@ function nodePoints(scan, nd){
   g.setAttribute('classification', new THREE.BufferAttribute(scan.cls.subarray(s, e), 1));
   g.setAttribute('family', new THREE.BufferAttribute(scan.family.subarray(s, e), 1));
   g.setAttribute('sel', new THREE.BufferAttribute(scan.sel.subarray(s, e), 1));
-  g.setAttribute('geo', new THREE.BufferAttribute(scan.geo.subarray(s * 4, e * 4), 4, true));
-  g.setAttribute('nrm', new THREE.BufferAttribute(scan.nrm.subarray(s * 3, e * 3), 3, true));
+  g.setAttribute('dens', new THREE.BufferAttribute(scan.dens.subarray(s, e), 1, true));
   g.boundingSphere = new THREE.Sphere(nd.center.clone(), nd.radius);
   const p = new THREE.Points(g, scan.material);
   p.frustumCulled = false;
@@ -2092,10 +2351,10 @@ function nodePoints(scan, nd){
   p.onBeforeRender = () => {
     const u = scan.material.uniforms;
     u.uSpacing.value = nd.spacing * scan.scale;
-    u.uDotSpacing.value = scan.dot ? scan.dot * scan.scale : 0;
     u.uVnStart.value = nd.vn;
     u.uNodeMin.value.fromArray(nd.min);
     u.uNodeSize.value = nd.size;
+    u.uNodeLevel.value = nd.level;
     scan.material.uniformsNeedUpdate = true;
   };
   scan.axis.add(p);
@@ -2216,8 +2475,22 @@ function syncUniforms(){
   const shape = SHAPES.find(x => x.id === params.shape) || SHAPES[1];
   shared.uShape.value = shape.code;
   shared.uShapeScale.value = shape.scale;
-  shared.uColorMode.value = { rgb:0, height:1, intensity:2, class:3, family:4, curvature:5, roughness:6, shape:7 }[params.color];
-  shared.uShade.value = params.shade ? 1 : 0;
+  shared.uColorMode.value = { rgb:0, height:1, intensity:2, class:3, family:4, depth:5, density:6, level:7 }[params.color];
+  shared.uTexOn.value = texState.on && shared.uTex.value ? 1 : 0;
+  shared.uTexMode.value = params.texMode;
+  shared.uTexBlend.value = params.texBlend;
+  shared.uTexStrength.value = params.texStrength;
+  updateTextureUniforms();
+  syncLineUniforms();
+  shared.uDensVar.value = params.densVar;
+  const fz = focusDistance(), fh = fz * params.dof / 200, [dlo, dhi] = depthRange();
+  shared.uFocusZ.value = fz; shared.uFocusHalf.value = fh;
+  shared.uDepthMode.value = params.depthMode === 'zones' ? 0 : 1;
+  shared.uLayers.value = params.layers;
+  shared.uDepthRange.value.set(dlo, dhi);
+  edlMat.uniforms.uFocusZ.value = fz; edlMat.uniforms.uFocusHalf.value = fh;
+  edlMat.uniforms.uBlur.value = params.blur;
+  edlMat.uniforms.uMaxR.value = 14 * pr;
   shared.uRamp.value = params.ramp === 'ink' ? 0 : 1;
   edlMat.uniforms.uNear.value = camera.near;
   edlMat.uniforms.uFar.value = camera.far;
@@ -2344,18 +2617,19 @@ function sourceCoords(hit){
   return [0, 1, 2].map(a => s.pos[i*3+a] + s.offset[a]);
 }
 
+function addInspect(s, i, p){
+  const [X, Y, Z] = sourceCoords({ scan:s, i });
+  const txt = `X ${X.toFixed(3)}\nY ${Y.toFixed(3)}\nZ ${Z.toFixed(3)}\n` +
+    (s.hasRGB ? `RGB ${s.rgb[i*3]} ${s.rgb[i*3+1]} ${s.rgb[i*3+2]}` : `Intensity ${s.intensity[i]}`) +
+    (s.hasClass ? ` · class ${s.cls[i]}` : '') + (s.family[i] ? ` · family ${s.family[i]}` : '');
+  measures.push({ objs:[markerAt(p)], labels:[labelAt(txt, p, 'coords')] });
+}
+
 function measureClick(e){
   const hit = pick(e.clientX, e.clientY);
   if (!hit){ toast('No point there — click on the cloud'); return; }
   const p = hit.world;
-  if (tool === 'inspect'){
-    const [X, Y, Z] = sourceCoords(hit), s = hit.scan, i = hit.i;
-    const txt = `X ${X.toFixed(3)}\nY ${Y.toFixed(3)}\nZ ${Z.toFixed(3)}\n` +
-      (s.hasRGB ? `RGB ${s.rgb[i*3]} ${s.rgb[i*3+1]} ${s.rgb[i*3+2]}` : `Intensity ${s.intensity[i]}`) +
-      (s.hasClass ? ` · class ${s.cls[i]}` : '') + (s.family[i] ? ` · family ${s.family[i]}` : '');
-    measures.push({ objs:[markerAt(p)], labels:[labelAt(txt, p, 'coords')] });
-    return;
-  }
+  if (tool === 'inspect') return addInspect(hit.scan, hit.i, p);
   if (!pending){ pending = { a:p, objs:[markerAt(p)] }; updateHint(); return; }
   const a = pending.a, b = p, objs = [...pending.objs, markerAt(b)];
   pending = null;
@@ -2506,34 +2780,24 @@ function subsetScan(scan, keep, n, name, hideParent = false){
 
 // a new scan from some of a scan's points (by index); it stays exactly in place
 function extractScan(scan, idx, name, opts = {}){
-  const n = idx.length, geo = scan.hasGeo;
+  const n = idx.length;
   const pos = new Float32Array(n * 3), rgb = new Uint8Array(n * 3), inten = new Uint16Array(n), cls = new Uint8Array(n), family = new Uint8Array(n);
-  const G = geo ? new Uint8Array(n * 4) : null, N = geo ? new Int8Array(n * 3) : null;
   for (let j = 0; j < n; j++){
     const i = idx[j];
     pos[j*3] = scan.pos[i*3]; pos[j*3+1] = scan.pos[i*3+1]; pos[j*3+2] = scan.pos[i*3+2];
     rgb[j*3] = scan.rgb[i*3]; rgb[j*3+1] = scan.rgb[i*3+1]; rgb[j*3+2] = scan.rgb[i*3+2];
     inten[j] = scan.intensity[i]; cls[j] = scan.cls[i]; family[j] = scan.family[i];
-    if (geo){
-      G[j*4] = scan.geo[i*4]; G[j*4+1] = scan.geo[i*4+1]; G[j*4+2] = scan.geo[i*4+2]; G[j*4+3] = scan.geo[i*4+3];
-      N[j*3] = scan.nrm[i*3]; N[j*3+1] = scan.nrm[i*3+1]; N[j*3+2] = scan.nrm[i*3+2];
-    }
   }
-  if (opts.ink) rgb.fill(params.background === 'night' ? 235 : 20);
   const raw = { n, pos, rgb, intensity: scan.hasIntensity ? inten : null, cls: scan.hasClass ? cls : null,
-    family, geo: G, nrm: N, offset: scan.offset.slice(), georef: scan.georef, upZ: scan.upZ, info: `Cut from ${scan.name}` };
-  const transfer = [pos.buffer, rgb.buffer, inten.buffer, cls.buffer, family.buffer];
-  if (geo) transfer.push(G.buffer, N.buffer);
+    family, offset: scan.offset.slice(), georef: scan.georef, upZ: scan.upZ, info: `Cut from ${scan.name}` };
   runJob({ type:'build', raw }, name, m => {
-    m.hasRGB = opts.ink ? true : scan.hasRGB;
+    m.hasRGB = scan.hasRGB;
     const s = addScan(m, name, { parent: scan, quiet: true, hideParent: opts.hideParent });
-    s.spacing = opts.stipple ? 0 : scan.spacing;
-    if (opts.stipple) s.dot = scan.dot || finestSpacing(scan);
     if (opts.onBuilt) opts.onBuilt(s);
-  }, transfer);
+  }, [pos.buffer, rgb.buffer, inten.buffer, cls.buffer, family.buffer]);
 }
 
-/* ============================== neighbourhood analysis ============================== */
+/* ============================== wand selection ============================== */
 // Image-processing ideas carried over to 3D: the "neighbouring pixels" of a point are
 // the points within a radius (a multiple of the scan's point spacing), found in the
 // worker through a hashed voxel grid.
@@ -2553,29 +2817,6 @@ function runNeigh(type, scan, label, extra, onDone){
     if (m.spacing) scan.spacing = m.spacing;
     onDone(m);
   }, transfer);
-}
-
-function computeGeometry(){
-  const list = visibleScans();
-  if (!list.length) return toast('Nothing visible', true);
-  let left = list.length;
-  for (const scan of list){
-    runNeigh('geometry', scan, 'Geometry', { factor: params.radius }, m => {
-      scan.geo.set(m.geo); scan.nrm.set(m.nrm);
-      scan.hasGeo = true; scan.material.uniforms.uHasGeo.value = 1;
-      markAttr(scan, 'geo', 'nrm');
-      if (--left === 0){
-        if (params.color === 'rgb') setColor('curvature');
-        toast('Geometry ready — colour by Curv. · Rough. · Shape, or switch on Shade');
-      }
-    });
-  }
-}
-
-function setShade(on){
-  params.shade = on;
-  $('btn-shade').classList.toggle('active', on);
-  if (on && !visibleScans().some(s => s.hasGeo)) toast('Compute geometry first (05)');
 }
 
 function updateSelStats(){
@@ -2620,85 +2861,10 @@ function cutSelection(){
   toast('Cut — the patch is a scan of its own now; select it and move it');
 }
 
-// connected components: every visible family falls apart into the pieces that hold together
-function splitPieces(){
-  const list = visibleScans();
-  if (!list.length) return toast('Nothing visible', true);
-  for (const scan of list){
-    runNeigh('pieces', scan, 'Pieces', { family: scan.family.slice(), famVis: famVisArray(),
-      factor: params.gap, minPts: params.minPts, maxPieces: 80 }, m => {
-      if (!m.count) return toast(`${scan.name}: no piece is larger than ${params.minPts} points`, true);
-      const counts = new Int32Array(m.count);
-      for (let i = 0; i < scan.n; i++) if (m.labels[i] >= 0) counts[m.labels[i]]++;
-      const lists = [...counts].map(c => new Int32Array(c)), fill = new Int32Array(m.count);
-      for (let i = 0; i < scan.n; i++){ const l = m.labels[i]; if (l >= 0) lists[l][fill[l]++] = i; }
-      lists.forEach((idx, p) => extractScan(scan, idx, `${scan.name} · p${p + 1}`));
-      scan.visible = false;
-      if (selected === scan) select(null);
-      refreshUI();
-      toast(`${scan.name} → ${m.count} pieces`);
-    });
-  }
-}
-
-function recountFamilies(){
-  const counts = new Array(fam.count).fill(0);
-  for (const s of visibleScans()) for (let i = 0; i < s.n; i++) if (s.family[i]) counts[s.family[i] - 1]++;
-  fam.counts = counts;
-  syncFamilies();
-}
-
-// morphology on family labels
-function morphFamilies(op){
-  if (!fam.count) return toast('Find colour families first (04)', true);
-  if (op !== 'clean' && fam.visible.every(Boolean)) return toast('Hide some families first — Grow and Shrink move the edge between visible and hidden ones', true);
-  for (const scan of visibleScans()){
-    runNeigh('morph', scan, op[0].toUpperCase() + op.slice(1), { family: scan.family.slice(), famVis: famVisArray(),
-      factor: params.radius, op }, m => {
-      scan.family.set(m.family);
-      markAttr(scan, 'family');
-      recountFamilies();
-    });
-  }
-}
-
-function pixelSort(){
-  const list = visibleScans();
-  if (!list.length) return toast('Nothing visible', true);
-  for (const scan of list){
-    runNeigh('sort', scan, 'Pixel sort', { rgb: scan.rgb.slice(), up: scan.upZ ? 2 : 1, factor: params.strip,
-      lo: params.thresh, key: params.sortKey }, m => {
-      if (!scan.rgbBackup) scan.rgbBackup = scan.rgb.slice();
-      scan.rgb.set(m.rgb);
-      markAttr(scan, 'rgb');
-      if (params.color !== 'rgb') setColor('rgb');
-    });
-  }
-}
 function restoreColours(){
   let any = false;
   for (const scan of scans.values()) if (scan.rgbBackup){ scan.rgb.set(scan.rgbBackup); scan.rgbBackup = null; markAttr(scan, 'rgb'); any = true; }
   toast(any ? 'Original colours restored' : 'Nothing to restore');
-}
-
-// the spacing of a scan's deepest octree level — the size of its finest dots
-function finestSpacing(scan){
-  const leaves = scan.nodes.filter(nd => !nd.children).map(nd => nd.spacing).sort((a, b) => a - b);
-  return leaves.length ? leaves[Math.floor(leaves.length / 2)] : scan.nodes[0].spacing;
-}
-
-// stippling: dark points survive, light ones drop out
-function stipple(){
-  const list = visibleScans();
-  if (!list.length) return toast('Nothing visible', true);
-  for (const scan of list){
-    const keep = [];
-    for (let i = 0; i < scan.n; i++){
-      const L = (0.3 * scan.rgb[i*3] + 0.59 * scan.rgb[i*3+1] + 0.11 * scan.rgb[i*3+2]) / 255;
-      if (Math.random() < params.stipple * Math.pow(1 - L, 2.5) * 3) keep.push(i);
-    }
-    if (keep.length) extractScan(scan, Int32Array.from(keep), `${scan.name} · stipple`, { ink: !params.stippleColour, stipple: true, hideParent: true });
-  }
 }
 
 function clipToScan(){
@@ -2718,6 +2884,625 @@ function clipToScan(){
   setClipMode(0);
   editBox = false;
   attachGizmo();
+}
+
+/* ============================== texture ============================== */
+// 2D textures mapped onto the points — projected from above, the front or the side,
+// wrapped around a cylinder or a sphere — and blended with their colours. The noise
+// samples are generated here and tile seamlessly (periodic noise).
+
+const TEX_N = 256;
+function hashI(x, y, s){
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(s, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+const wrapI = (a, P) => ((a % P) + P) % P;
+// value noise with period P (lattice cells)
+function pnoise(x, y, P, s){
+  const xi = Math.floor(x), yi = Math.floor(y), u = x - xi, v = y - yi;
+  const su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+  const a = hashI(wrapI(xi, P), wrapI(yi, P), s), b = hashI(wrapI(xi + 1, P), wrapI(yi, P), s);
+  const c = hashI(wrapI(xi, P), wrapI(yi + 1, P), s), d = hashI(wrapI(xi + 1, P), wrapI(yi + 1, P), s);
+  return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
+}
+function pfbm(x, y, P, oct, s = 1){
+  let sum = 0, amp = 0.5, f = 1, norm = 0;
+  for (let o = 0; o < oct; o++){ sum += amp * pnoise(x * f, y * f, P * f, s + o); norm += amp; amp *= 0.5; f *= 2; }
+  return sum / norm;
+}
+// cellular (Worley) noise with period P: distances to the nearest and second-nearest seed
+function worley(x, y, P, s = 3){
+  const xi = Math.floor(x), yi = Math.floor(y);
+  let f1 = 9, f2 = 9, id = 0;
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++){
+    const cx = xi + dx, cy = yi + dy, mx = wrapI(cx, P), my = wrapI(cy, P);
+    const d = Math.hypot(cx + hashI(mx, my, s) - x, cy + hashI(mx, my, s + 7) - y);
+    if (d < f1){ f2 = f1; f1 = d; id = hashI(mx, my, s + 13); } else if (d < f2) f2 = d;
+  }
+  return [f1, f2, id];
+}
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+const grey = v => [v, v, v];
+const TERRAZZO = [[0.80, 0.42, 0.30], [0.16, 0.18, 0.22], [0.92, 0.88, 0.80], [0.0, 0.184, 0.655], [0.55, 0.62, 0.50], [0.85, 0.72, 0.45]];
+
+// each sample maps texture coordinates (0..1, tiling) to a colour
+const NOISES = [
+  { id:'clouds', name:'Clouds — fractal value noise', f:(u, v) => grey(clamp01((pfbm(u * 4, v * 4, 4, 6) - 0.5) * 1.9 + 0.5)) },
+  { id:'marble', name:'Marble — veins bent by noise', f:(u, v) => {
+      const n = pfbm(u * 4, v * 4, 4, 5, 11), s = Math.abs(Math.sin(Math.PI * (3 * u + n * 2.6)));
+      return grey(0.93 - 0.78 * Math.pow(1 - s, 7) - 0.12 * n); } },
+  { id:'wood', name:'Wood — grain lines', f:(u, v) => {
+      const n = pfbm(u * 2, v * 8, 2, 4, 21), g = (v * 9 + n * 1.8) % 1;
+      return grey(0.42 + 0.45 * Math.pow(g, 2.5) + 0.08 * pnoise(u * 64, v * 4, 64, 5)); } },
+  { id:'cells', name:'Cells — Worley distance', f:(u, v) => grey(clamp01(1 - worley(u * 8, v * 8, 8)[0] * 1.15)) },
+  { id:'cracks', name:'Craquelure — cell borders', f:(u, v) => {
+      const w = worley(u * 10, v * 10, 10, 31), n = pfbm(u * 8, v * 8, 8, 3, 41);
+      return grey(0.25 + 0.7 * smooth(0.015, 0.07, w[1] - w[0] + (n - 0.5) * 0.03)); } },
+  { id:'ridged', name:'Ridged — mountain lines', f:(u, v) => grey(Math.pow(1 - Math.abs(2 * pfbm(u * 4, v * 4, 4, 6, 51) - 1), 3)) },
+  { id:'turbulence', name:'Turbulence — folded noise', f:(u, v) => {
+      let s = 0, a = 0.5, f = 1;
+      for (let o = 0; o < 6; o++){ s += a * Math.abs(2 * pnoise(u * 4 * f, v * 4 * f, 4 * f, 61 + o) - 1); a *= 0.5; f *= 2; }
+      return grey(clamp01(s * 1.7)); } },
+  { id:'terrazzo', name:'Terrazzo — coloured chips', f:(u, v) => {
+      const w = worley(u * 12, v * 12, 12, 71);
+      if (w[0] < 0.32 + 0.12 * pnoise(u * 48, v * 48, 48, 72)) return TERRAZZO[Math.floor(w[2] * TERRAZZO.length)];
+      const g = 0.82 + 0.1 * hashI(Math.floor(u * 256), Math.floor(v * 256), 73);
+      return [g, g * 0.98, g * 0.94]; } },
+];
+
+const textures = new Map();      // id -> { tex, data (ImageData), name }
+function canvasTexture(canvas, name){
+  const ctx = canvas.getContext('2d');
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.generateMipmaps = false;
+  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  return { tex, data: ctx.getImageData(0, 0, canvas.width, canvas.height), name, canvas };
+}
+function makeNoise(nz){
+  const c = document.createElement('canvas');
+  c.width = c.height = TEX_N;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(TEX_N, TEX_N);
+  for (let j = 0; j < TEX_N; j++) for (let i = 0; i < TEX_N; i++){
+    const col = nz.f(i / TEX_N, j / TEX_N), o = (j * TEX_N + i) * 4;
+    img.data[o] = col[0] * 255; img.data[o+1] = col[1] * 255; img.data[o+2] = col[2] * 255; img.data[o+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvasTexture(c, nz.name);
+}
+
+const texState = { id: null, on: false };
+function buildTexturePalette(){
+  const el = $('tex-palette');
+  for (const nz of NOISES){
+    const t = makeNoise(nz);
+    textures.set(nz.id, t);
+    const b = document.createElement('button');
+    b.className = 'texsw'; b.dataset.tex = nz.id; b.title = nz.name; b.setAttribute('aria-label', nz.name);
+    b.appendChild(t.canvas);
+    b.onclick = () => useTexture(nz.id);
+    el.appendChild(b);
+  }
+}
+function useTexture(id){
+  const t = textures.get(id);
+  if (!t) return;
+  texState.id = id;
+  shared.uTex.value = t.tex;
+  setTextureOn(true);
+  document.querySelectorAll('#tex-palette .texsw').forEach(b => b.classList.toggle('active', b.dataset.tex === id));
+  $('tex-name').textContent = t.name;
+}
+function setTextureOn(on){
+  if (on && !texState.id) return useTexture(NOISES[0].id);
+  texState.on = on;
+  $('btn-tex-on').classList.toggle('active', on);
+  $('btn-tex-on').textContent = on ? 'Texture on' : 'Texture off';
+  if (on && params.color !== 'rgb') setColor('rgb');
+}
+function loadTextureImage(file){
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const s = Math.min(1, 1024 / Math.max(img.width, img.height));
+    c.width = Math.max(1, Math.round(img.width * s)); c.height = Math.max(1, Math.round(img.height * s));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    const id = 'img-' + Date.now();
+    const t = canvasTexture(c, file.name);
+    textures.set(id, t);
+    const b = document.createElement('button');
+    b.className = 'texsw'; b.dataset.tex = id; b.title = file.name; b.setAttribute('aria-label', file.name);
+    const thumb = document.createElement('canvas');
+    thumb.width = thumb.height = 64;
+    thumb.getContext('2d').drawImage(c, 0, 0, 64, 64);
+    b.appendChild(thumb);
+    b.onclick = () => useTexture(id);
+    $('tex-palette').appendChild(b);
+    useTexture(id);
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = () => toast(`${file.name}: not an image`, true);
+  img.src = URL.createObjectURL(file);
+}
+
+function updateTextureUniforms(){
+  const box = sceneBox();
+  if (box.isEmpty()) return;
+  const size = box.getSize(new THREE.Vector3());
+  box.getCenter(shared.uTexCenter.value);
+  shared.uTexRadius.value = Math.max(size.x, size.z) / 2;
+  shared.uTexTile.value = Math.max(size.x, size.y, size.z) * params.texTile / 100;
+}
+
+// the same mapping as the shader, on the CPU: texture coordinates of a world point
+function texUV(w){
+  const c = shared.uTexCenter.value, T = shared.uTexTile.value, R = shared.uTexRadius.value;
+  const x = w.x - c.x, y = w.y - c.y, z = w.z - c.z;
+  switch (params.texMode){
+    case 0: return [x / T, z / T];
+    case 1: return [x / T, y / T];
+    case 2: return [z / T, y / T];
+  }
+  const n = Math.max(1, Math.floor(2 * Math.PI * R / T + 0.5));
+  const a = Math.atan2(z, x) / (2 * Math.PI) + 0.5;
+  if (params.texMode === 3) return [a * n, y / T];
+  const r = Math.max(Math.hypot(x, y, z), 1e-6);
+  return [a * n, Math.acos(Math.max(-1, Math.min(1, y / r))) / Math.PI * n * 0.5];
+}
+function sampleTex(t, u, v){
+  const { width: W, height: H, data } = t.data;
+  const x = ((u % 1) + 1) % 1 * W - 0.5, y = (1 - (((v % 1) + 1) % 1)) * H - 0.5;   // flipY, as on the GPU
+  const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, out = [0, 0, 0];
+  for (const [dx, dy, wt] of [[0, 0, (1 - fx) * (1 - fy)], [1, 0, fx * (1 - fy)], [0, 1, (1 - fx) * fy], [1, 1, fx * fy]]){
+    const o = (wrapI(y0 + dy, H) * W + wrapI(x0 + dx, W)) * 4;
+    out[0] += data[o] * wt; out[1] += data[o+1] * wt; out[2] += data[o+2] * wt;
+  }
+  return out.map(v => v / 255);
+}
+function blendTex(b, t){
+  const k = params.texStrength;
+  return b.map((bv, i) => {
+    const tv = t[i];
+    const o = params.texBlend === 0 ? tv : params.texBlend === 1 ? bv * tv : (bv < 0.5 ? 2 * bv * tv : 1 - 2 * (1 - bv) * (1 - tv));
+    return bv + (o - bv) * k;
+  });
+}
+
+// writes the textured colours into the scans (Restore brings the originals back)
+function bakeTexture(){
+  if (!texState.on) return toast('Switch a texture on first', true);
+  const t = textures.get(texState.id), w = new THREE.Vector3();
+  updateTextureUniforms();
+  for (const scan of visibleScans()){
+    if (!scan.rgbBackup) scan.rgbBackup = scan.rgb.slice();
+    const M = scan.axis.matrixWorld;
+    for (let i = 0; i < scan.n; i++){
+      w.set(scan.pos[i*3], scan.pos[i*3+1], scan.pos[i*3+2]).applyMatrix4(M);
+      const [u, v] = texUV(w);
+      const c = blendTex([scan.rgb[i*3] / 255, scan.rgb[i*3+1] / 255, scan.rgb[i*3+2] / 255], sampleTex(t, u, v));
+      scan.rgb[i*3] = clamp01(c[0]) * 255; scan.rgb[i*3+1] = clamp01(c[1]) * 255; scan.rgb[i*3+2] = clamp01(c[2]) * 255;
+    }
+    scan.hasRGB = true;
+    markAttr(scan, 'rgb');
+  }
+  setTextureOn(false);
+  toast('Texture baked into the colours — it now exports and clusters with them');
+}
+
+// the texture as a cutting pattern: points where it is brighter than the threshold
+// become one scan, the rest another
+function cutByTexture(){
+  if (!texState.id) return toast('Pick a texture first', true);
+  const t = textures.get(texState.id), w = new THREE.Vector3();
+  updateTextureUniforms();
+  let made = 0;
+  for (const scan of visibleScans()){
+    const M = scan.axis.matrixWorld, light = [], dark = [];
+    for (let i = 0; i < scan.n; i++){
+      w.set(scan.pos[i*3], scan.pos[i*3+1], scan.pos[i*3+2]).applyMatrix4(M);
+      if (pointHidden(scan, i, w)) continue;
+      const [u, v] = texUV(w), c = sampleTex(t, u, v);
+      (0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2] > params.texThresh ? light : dark).push(i);
+    }
+    if (!light.length || !dark.length) continue;
+    extractScan(scan, Int32Array.from(light), `${scan.name} · light`);
+    extractScan(scan, Int32Array.from(dark), `${scan.name} · dark`);
+    scan.visible = false;
+    if (selected === scan) select(null);
+    made++;
+  }
+  refreshUI();
+  toast(made ? 'Cut along the texture — light and dark parts are scans of their own now' : 'The threshold leaves nothing on one side', !made);
+}
+
+function setTexMode(m){
+  params.texMode = m;
+  document.querySelectorAll('#texmap-tabs .tab').forEach(t => t.classList.toggle('active', +t.dataset.texmode === m));
+}
+function setTexBlend(b){
+  params.texBlend = b;
+  document.querySelectorAll('#texblend-tabs .tab').forEach(t => t.classList.toggle('active', +t.dataset.texblend === b));
+}
+
+/* ============================== how point clouds work ============================== */
+// A short course in seven lessons; each "Show" changes the view to demonstrate the idea
+// on the loaded scan, "Hide" puts the settings back.
+
+const nodeBoxes = new THREE.Group();
+overlay.add(nodeBoxes);
+const unitBoxEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0.5, 0.5));
+const levelMats = [];
+function levelMat(l){
+  if (!levelMats[l]){
+    const t = Math.min(l / 6, 1), stops = [[0.17, 0.25, 0.70], [0.16, 0.66, 0.80], [0.45, 0.78, 0.35], [0.98, 0.82, 0.25], [0.86, 0.20, 0.16]];
+    const k = t * 4, i = Math.min(3, Math.floor(k)), f = k - i;
+    const c = stops[i].map((v, a) => v + (stops[i + 1][a] - v) * f);
+    levelMats[l] = new THREE.LineBasicMaterial({ color: new THREE.Color(...c), transparent: true, opacity: 0.55 });
+  }
+  return levelMats[l];
+}
+const _bm = new THREE.Matrix4();
+function updateNodeBoxes(){
+  nodeBoxes.visible = params.showNodes;
+  if (!params.showNodes) return;
+  for (const scan of scans.values()){
+    for (const nd of scan.nodes){
+      const drawn = scan.visible && nd.points && nd.points.visible;
+      if (!drawn){ if (nd.box) nd.box.visible = false; continue; }
+      if (!nd.box){
+        nd.box = new THREE.LineSegments(unitBoxEdges, levelMat(nd.level));
+        nd.box.matrixAutoUpdate = false;
+        nodeBoxes.add(nd.box);
+      }
+      nd.box.visible = true;
+      nd.box.matrix.copy(scan.axis.matrixWorld).multiply(_bm.makeTranslation(nd.min[0], nd.min[1], nd.min[2]))
+        .multiply(_bm.makeScale(nd.size, nd.size, nd.size));
+      nd.box.matrixWorldNeedsUpdate = true;
+    }
+  }
+}
+function removeNodeBoxes(scan){
+  for (const nd of scan.nodes) if (nd.box){ nodeBoxes.remove(nd.box); nd.box = null; }
+}
+
+// neighbourhood demo: the points within a radius of a clicked point
+function neighbourClick(e){
+  const hit = pick(e.clientX, e.clientY);
+  if (!hit) return toast('No point there — click on the cloud');
+  const s = hit.scan, i = hit.i, P = s.pos;
+  const r = (s.spacing || s.nodes[0].spacing) * 4, r2 = r * r;
+  clearSelection();
+  let c = 0;
+  for (let j = 0; j < s.n; j++){
+    const dx = P[j*3] - P[i*3], dy = P[j*3+1] - P[i*3+1], dz = P[j*3+2] - P[i*3+2];
+    if (dx*dx + dy*dy + dz*dz <= r2){ s.sel[j] = 1; c++; }
+  }
+  s.selCount = c;
+  markAttr(s, 'sel');
+  updateSelStats();
+  const rw = r * s.scale;
+  $('lesson-extra').textContent = `${c} neighbours within ${rw < 1 ? (rw * 100).toFixed(1) + ' cm' : rw.toFixed(2) + ' m'} — 4 × the average point spacing of this scan.`;
+}
+
+function randomRecord(){
+  const s = visibleScans()[0];
+  if (!s) return '';
+  let i = Math.floor(Math.random() * s.n), tries = 0;
+  const w = new THREE.Vector3();
+  while (tries++ < 50){
+    w.set(s.pos[i*3], s.pos[i*3+1], s.pos[i*3+2]).applyMatrix4(s.axis.matrixWorld);
+    if (!pointHidden(s, i, w)) break;
+    i = Math.floor(Math.random() * s.n);
+  }
+  addInspect(s, i, w.clone());
+  const X = s.pos[i*3] + s.offset[0], Y = s.pos[i*3+1] + s.offset[1], Z = s.pos[i*3+2] + s.offset[2];
+  return `Point ${i.toLocaleString()} of ${s.n.toLocaleString()} in ${s.name}: X ${X.toFixed(3)} · Y ${Y.toFixed(3)} · Z ${Z.toFixed(3)} · ` +
+    `RGB ${s.rgb[i*3]} ${s.rgb[i*3+1]} ${s.rgb[i*3+2]} · intensity ${s.intensity[i]} · class ${s.cls[i]}. It is marked in the view.`;
+}
+
+function coordinateNote(){
+  const s = visibleScans().find(x => x.georef);
+  const err = X => `X = ${X.toFixed(4)} becomes ${Math.fround(X).toFixed(4)} as a 32-bit float — ${(Math.abs(Math.fround(X) - X) * 1000).toFixed(1)} mm off`;
+  if (!s) return `This scan sits near zero, so nothing is lost. A survey point in UTM coordinates is different: ${err(612019.9286)}. Load the Terrain preset or the brick arch to see real offsets.`;
+  return `${s.name} is stored relative to ${s.offset.map(v => v.toFixed(2)).join(' / ')}. Without that offset, ${err(s.offset[0] + s.bounds.max[0])}.`;
+}
+
+const LESSONS = [
+  { title: 'Points, not surfaces',
+    text: 'A scan is a long list of points in space — and nothing in between: no surface, no inside, no outside. What looks like a wall is only dense enough sampling. Show draws every point as a single pixel without shading, and the surface dissolves.',
+    show(){ params.sizeMode = 'fixed'; params.size = 1; params.edl = 0; params.shape = 'square'; params.color = 'rgb'; } },
+  { title: 'Every point is a record',
+    text: 'Each point stores its position X Y Z and, depending on the device, a colour (RGB), the intensity of the returned laser pulse, a class (ground, building, vegetation …), the return number and a timestamp. Show picks a random point and reads its record; the Point tool in 03 reads any other.',
+    show(){ $('lesson-extra').textContent = randomRecord(); } },
+  { title: 'Sampling is uneven',
+    text: 'A laser scanner samples densely near the instrument and sparsely far away; photogrammetry finds points where the photos show texture. Behind objects stay empty shadows. Show colours each point by its local density — blue sparse, red dense.',
+    show(){ params.color = 'density'; } },
+  { title: 'Level of detail',
+    text: 'Millions of points cannot all be drawn at once. On loading, every scan is sorted into an octree: large boxes hold a coarse sample, ever smaller boxes the detail. The viewer opens the boxes that are largest on screen first, until the point budget is spent. Show draws the boxes and colours the points by level — zoom in and watch finer levels appear.',
+    show(){ params.color = 'level'; params.showNodes = true; } },
+  { title: 'Neighbourhoods',
+    text: 'Points know nothing about each other. Every tool that needs context — the wand, density, normals, cleaning — first searches the neighbours within a radius: the 3D version of the pixels around a pixel. Show: click a point to see its neighbourhood.',
+    show(){ setTool('neighbours'); } },
+  { title: 'Coordinates and precision',
+    text: 'Survey scans use real-world coordinates — hundreds of thousands of metres. Graphics cards compute in 32-bit floats with about seven significant digits, so millimetres would be lost far from zero. The app stores every scan relative to an offset and adds it back when reading points. Many formats are Z-up, three.js is Y-up — hence the Up button.',
+    show(){ $('lesson-extra').textContent = coordinateNote(); } },
+  { title: 'Shading without surfaces',
+    text: 'Without surfaces there are no normals and no lighting. Eye-dome lighting shades each pixel by how much nearer its neighbouring pixels are — enough to read form and edges. Show switches it off; Hide brings it back.',
+    show(){ params.edl = 0; params.shape = 'circle'; } },
+];
+let lessonIdx = 0, lessonSaved = null;
+function snapshotView(){ return { size: params.size, sizeMode: params.sizeMode, edl: params.edl, shape: params.shape, color: params.color, showNodes: params.showNodes }; }
+function applyView(v){
+  Object.assign(params, v);
+  syncSliders();
+  setShape(params.shape);
+  setColor(params.color);
+  document.querySelectorAll('#size-tabs [data-size]').forEach(x => x.classList.toggle('active', x.dataset.size === params.sizeMode));
+}
+function renderLesson(){
+  const L = LESSONS[lessonIdx];
+  $('lesson-count').textContent = `${lessonIdx + 1} / ${LESSONS.length}`;
+  $('lesson-title').textContent = L.title;
+  $('lesson-text').textContent = L.text;
+  $('lesson-extra').textContent = '';
+  $('lesson-show').textContent = lessonSaved ? 'Hide' : 'Show';
+  $('lesson-show').classList.toggle('active', !!lessonSaved);
+}
+function hideLesson(){
+  if (!lessonSaved) return;
+  applyView(lessonSaved);
+  lessonSaved = null;
+  if (tool === 'neighbours'){ setTool('select'); clearSelection(); }
+}
+function toggleLesson(){
+  if (lessonSaved){ hideLesson(); renderLesson(); return; }
+  if (!scans.size) return toast('Load a scan or a preset first', true);
+  lessonSaved = snapshotView();
+  LESSONS[lessonIdx].show();
+  applyView(snapshotView());
+  const extra = $('lesson-extra').textContent;
+  renderLesson();
+  $('lesson-extra').textContent = extra;
+}
+function stepLesson(d){
+  hideLesson();
+  lessonIdx = (lessonIdx + d + LESSONS.length) % LESSONS.length;
+  renderLesson();
+}
+
+/* ============================== line drawing ============================== */
+// After Fritz Panzer's wire sculptures: the scan redrawn as lines in space — the borders
+// of its colour families, the edges of the cloud, contours and sections. Lines are traced
+// in the worker and drawn as fat line segments in the scan's own frame, so they move
+// with it.
+
+const lineGroup = new THREE.Group();
+overlay.add(lineGroup);
+const lineMat = new LineMaterial({ color: 0x111111, linewidth: 1.5, worldUnits: false, vertexColors: false, depthTest: false });
+const lineSets = [];       // { scan, kind, segs (local), obj }
+
+function addLineSet(scan, kind, segs, cols){
+  if (!segs.length) return null;
+  const g = new LineSegmentsGeometry();
+  g.setPositions(segs);
+  g.setColors(cols);
+  const obj = new LineSegments2(g, lineMat);
+  obj.matrixAutoUpdate = false;
+  obj.frustumCulled = false;
+  obj.renderOrder = 5;
+  lineGroup.add(obj);
+  const ls = { scan, kind, segs, obj };
+  lineSets.push(ls);
+  return ls;
+}
+function removeLineSet(ls){
+  lineGroup.remove(ls.obj);
+  ls.obj.geometry.dispose();
+  lineSets.splice(lineSets.indexOf(ls), 1);
+}
+function removeLineSets(scan){ for (const ls of lineSets.filter(l => l.scan === scan)) removeLineSet(ls); }
+function updateLineSets(){
+  for (const ls of lineSets){
+    ls.obj.visible = ls.scan.visible;
+    ls.obj.matrix.copy(ls.scan.axis.matrixWorld);
+    ls.obj.matrixWorldNeedsUpdate = true;
+  }
+}
+
+function setPointsVisible(on){
+  params.showPoints = on;
+  $('btn-points').classList.toggle('active', on);
+  $('btn-points').textContent = on ? 'Points on' : 'Points off';
+}
+function setLineColour(c){
+  params.lineColour = c;
+  document.querySelectorAll('#linecol-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.linecol === c));
+  lineMat.vertexColors = c === 'colour';
+  lineMat.needsUpdate = true;
+}
+function setSection(axis){
+  params.secAxis = axis;
+  document.querySelectorAll('#sec-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.sec === axis));
+}
+
+const famColArray = () => {
+  const a = new Float32Array(17 * 3);
+  shared.uFamColor.value.forEach((v, i) => { a[i*3] = v.x; a[i*3+1] = v.y; a[i*3+2] = v.z; });
+  return a;
+};
+// typical point spacing in world units, for the thickness of cuts and contour bands
+function worldSpacing(){
+  const list = visibleScans().filter(s => s.spacing);
+  if (!list.length){ const b = sceneBox(); return b.isEmpty() ? 0.01 : b.getSize(new THREE.Vector3()).length() / 2000; }
+  return Math.min(...list.map(s => s.spacing * (s.scale || 1)));
+}
+function contourLevels(){
+  const box = sceneBox();
+  const step = (box.max.y - box.min.y) / (params.contours + 1);
+  return { y0: box.min.y, step: step > 0 ? step : 1, count: params.contours };
+}
+function sectionPlane(){
+  const box = sceneBox(), a = { x:0, y:1, z:2 }[params.secAxis] ?? 0;
+  const n = [0, 0, 0];
+  n[a] = 1;
+  let d = box.min.getComponent(a) + (box.max.getComponent(a) - box.min.getComponent(a)) * params.secPos / 100;
+  if (params.secFlip){ n[a] = -1; d = -d; }
+  return [n[0], n[1], n[2], d];
+}
+function syncLineUniforms(){
+  const ws = worldSpacing();
+  lineMat.linewidth = params.lineWidth;
+  if (params.lineColour !== 'colour') lineMat.color.set(params.lineColour === 'blue' ? BLUE : params.background === 'night' ? 0xeeeeee : 0x111111);
+  else lineMat.color.set(0xffffff);
+  shared.uSecOn.value = params.secAxis === 'off' || !scans.size ? 0 : 1;
+  if (shared.uSecOn.value) shared.uSecPlane.value.fromArray(sectionPlane());
+  shared.uSecTol.value = ws * 1.2;
+  shared.uContOn.value = params.contPreview && scans.size ? 1 : 0;
+  if (shared.uContOn.value){
+    const L = contourLevels();
+    shared.uContY0.value = L.y0; shared.uContStep.value = L.step; shared.uContCount.value = L.count;
+  }
+  shared.uContTol.value = ws * 1.2;
+}
+
+function lineJob(type, label, extra, kind, after){
+  const list = visibleScans();
+  if (!list.length) return toast('Nothing visible', true);
+  let left = list.length, total = 0;
+  for (const scan of list){
+    runNeigh(type, scan, label, { family: scan.family.slice(), famVis: famVisArray(), ...extra(scan) }, m => {
+      if (addLineSet(scan, kind, m.segs, m.cols)) total += m.segs.length / 6;
+      if (--left === 0){
+        toast(total ? `${total.toLocaleString()} line segments drawn${after ? ' — ' + after : ''}` : 'No lines found — try another detail or level', !total);
+      }
+    });
+  }
+}
+function drawOutlines(){
+  if (!params.lineBorders && !params.lineEdges) return toast('Tick family borders or cloud edges', true);
+  if (params.lineBorders && !fam.count && !params.lineEdges) return toast('Find colour families first (04) — or tick cloud edges', true);
+  lineJob('outline', 'Outlines', () => ({ famCol: famColArray(), factor: params.lineDetail,
+    borders: params.lineBorders && fam.count > 0, edges: params.lineEdges, tidy: params.lineTidy }), 'outline', 'switch the points off (P) to see the wire drawing');
+}
+function drawContours(){
+  const L = contourLevels();
+  lineJob('contours', 'Contours', scan => ({ M: Float32Array.from(scan.axis.matrixWorld.elements), ...L }), 'contour');
+}
+function drawSection(){
+  if (params.secAxis === 'off') setSection('x');
+  const plane = sectionPlane();
+  lineJob('section', 'Section', scan => ({ M: Float32Array.from(scan.axis.matrixWorld.elements), plane }), 'section');
+}
+
+// all drawn lines as a DXF: 3D LINEs on one layer per kind, Z up, real-world coordinates
+function exportLinesDXF(){
+  const sets = lineSets.filter(ls => scans.has(ls.scan.id));
+  if (!sets.length) return toast('Draw some lines first', true);
+  const ref = world.ref || [0, 0, 0], a = new THREE.Vector3(), b = new THREE.Vector3();
+  const layer = { outline: 'OUTLINES', contour: 'CONTOURS', section: 'SECTION' };
+  const f = v => v.toFixed(4), out = ['0', 'SECTION', '2', 'ENTITIES'];
+  let count = 0;
+  for (const ls of sets){
+    const M = ls.scan.axis.matrixWorld, S = ls.segs;
+    for (let i = 0; i < S.length; i += 6){
+      a.set(S[i], S[i+1], S[i+2]).applyMatrix4(M);
+      b.set(S[i+3], S[i+4], S[i+5]).applyMatrix4(M);
+      out.push('0', 'LINE', '8', layer[ls.kind],
+        '10', f(a.x + ref[0]), '20', f(-a.z + ref[1]), '30', f(a.y + ref[2]),
+        '11', f(b.x + ref[0]), '21', f(-b.z + ref[1]), '31', f(b.y + ref[2]));
+      count++;
+    }
+  }
+  out.push('0', 'ENDSEC', '0', 'EOF');
+  download(new Blob([out.join('\n') + '\n'], { type: 'application/dxf' }), 'scan-matter-lines.dxf');
+  toast(`Exported ${count.toLocaleString()} lines as DXF`);
+}
+
+/* ============================== depth ============================== */
+// Segmentation by distance from the camera — the depth-of-field idea, with real depth:
+// a focal plane (set by clicking a point) and a sharp zone around it.
+
+const _fwd2 = new THREE.Vector3(), _tmp = new THREE.Vector3();
+let focusPoint = null;          // world point the focus sits on; null = the orbit target
+
+function focusDistance(){
+  camera.getWorldDirection(_fwd2);
+  const p = focusPoint || orbit.target;
+  return Math.max(_tmp.copy(p).sub(camera.position).dot(_fwd2), camera.near * 2);
+}
+function depthRange(){
+  // near and far view depth of everything visible, for the layers
+  const box = sceneBox();
+  if (box.isEmpty()) return [0, 1];
+  camera.getWorldDirection(_fwd2);
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < 8; i++){
+    _tmp.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
+    const z = _tmp.sub(camera.position).dot(_fwd2);
+    lo = Math.min(lo, z); hi = Math.max(hi, z);
+  }
+  return [Math.max(lo, camera.near), Math.max(hi, camera.near * 2)];
+}
+
+function focusClick(e){
+  const hit = pick(e.clientX, e.clientY);
+  if (!hit) return toast('No point there — click on the cloud');
+  focusPoint = hit.world.clone();
+  updateFocusStats();
+}
+function updateFocusStats(){
+  if (!scans.size){ $('focusstats').textContent = ''; return; }
+  const f = focusDistance(), h = f * params.dof / 200;
+  $('focusstats').textContent = `Focus ${f.toFixed(2)} m · sharp ${Math.max(0, f - h).toFixed(2)}–${(f + h).toFixed(2)} m` + (focusPoint ? '' : ' · on the view centre');
+}
+
+function cutByDepth(){
+  const list = visibleScans();
+  if (!list.length) return toast('Nothing visible', true);
+  camera.updateMatrixWorld();
+  camera.getWorldDirection(_fwd2);
+  const cam = camera.position.clone(), dir = _fwd2.clone();
+  const f = focusDistance(), h = f * params.dof / 200;
+  const zones = params.depthMode === 'zones';
+  const n = zones ? 3 : params.layers;
+  const [lo, hi] = depthRange();
+  const names = zones ? ['fore', 'focus', 'back'] : [...Array(n)].map((_, i) => `layer ${i + 1}`);
+  const w = new THREE.Vector3();
+  let made = 0;
+  for (const scan of list){
+    const M = scan.axis.matrixWorld, label = new Int8Array(scan.n), counts = new Int32Array(n);
+    for (let i = 0; i < scan.n; i++){
+      w.set(scan.pos[i*3], scan.pos[i*3+1], scan.pos[i*3+2]).applyMatrix4(M);
+      if (pointHidden(scan, i, w)){ label[i] = -1; continue; }
+      const z = (w.x - cam.x) * dir.x + (w.y - cam.y) * dir.y + (w.z - cam.z) * dir.z;
+      const l = zones ? (z < f - h ? 0 : z > f + h ? 2 : 1) : Math.min(n - 1, Math.max(0, Math.floor((z - lo) / (hi - lo) * n)));
+      label[i] = l; counts[l]++;
+    }
+    const lists = [...counts].map(c => new Int32Array(c)), fill = new Int32Array(n);
+    for (let i = 0; i < scan.n; i++){ const l = label[i]; if (l >= 0) lists[l][fill[l]++] = i; }
+    lists.forEach((idx, l) => { if (idx.length){ extractScan(scan, idx, `${scan.name} · ${names[l]}`); made++; } });
+    scan.visible = false;
+    if (selected === scan) select(null);
+  }
+  refreshUI();
+  if (params.color === 'depth') setColor('rgb');
+  toast(`Cut into ${made} depth ${zones ? 'zones' : 'layers'} — pull them apart with the gizmo`);
+}
+
+function setDepthMode(mode){
+  params.depthMode = mode;
+  document.querySelectorAll('#depth-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.depthmode === mode));
+  $('layers-row').style.display = mode === 'layers' ? '' : 'none';
+}
+
+function clearAll(){
+  for (const s of [...scans.values()]) removeScan(s);
+  fam.count = 0; fam.colors = []; fam.counts = [];
+  focusPoint = null;
+  syncFamilies();
+  updateFocusStats();
 }
 
 /* ============================== export ============================== */
@@ -2802,7 +3587,7 @@ function recordTurn(){
 
 function refreshUI(){
   const any = scans.size > 0;
-  for (const id of ['step2', 'step3', 'step4', 'step5', 'step6']) $(id).classList.toggle('locked', !any);
+  for (const id of ['step2', 'step3', 'step4', 'step5', 'step6', 'step7', 'step8']) $(id).classList.toggle('locked', !any);
   const list = $('scanlist');
   list.innerHTML = '';
   for (const s of scans.values()){
@@ -2837,7 +3622,9 @@ function updateHint(){
   let h;
   if (!scans.size) h = '<b>01 Load</b> — drop LAS, LAZ, PLY or XYZ files anywhere, or start from a preset · files never leave your computer';
   else if (editBox) h = '<b>Clip box</b> — drag the gizmo · <b>G</b> move · <b>R</b> rotate · <b>X</b> scale · <b>Esc</b> done';
-  else if (tool === 'wand') h = '<b>Wand</b> — click a point to select its colour patch · <b>Shift</b>-click adds · then <b>Cut</b>';
+  else if (tool === 'wand') h = '<b>Wand</b> — click a point to select its colour patch · <b>Shift</b>-click adds · then <b>Cut selection</b>';
+  else if (tool === 'neighbours') h = '<b>Neighbourhood</b> — click a point: its neighbours light up · Hide in 07 ends the lesson';
+  else if (tool === 'focus') h = '<b>Focus</b> — click a point: it becomes the focal plane for the depth zones and the blur';
   else if (tool === 'inspect') h = '<b>Point</b> — click a point to read its source coordinates, colour and class';
   else if (tool === 'distance') h = pending ? '<b>Distance</b> — now click the <b>second</b> point' : '<b>Distance</b> — click two points';
   else if (tool === 'height') h = pending ? '<b>Height</b> — now click the <b>second</b> point' : '<b>Height</b> — click two points for the vertical difference';
@@ -2856,7 +3643,7 @@ function setTool(t){
   tool = t;
   if (pending) clearPending();
   if (t !== 'select') editBox = false;
-  for (const k of ['select', 'inspect', 'distance', 'height', 'wand']) $('tool-' + k).classList.toggle('active', k === t);
+  for (const k of ['select', 'inspect', 'distance', 'height', 'wand', 'focus']) $('tool-' + k).classList.toggle('active', k === t);
   renderer.domElement.style.cursor = t === 'select' ? '' : 'crosshair';
   attachGizmo();
   updateHint();
@@ -2894,7 +3681,8 @@ $('btn-load').onclick = () => $('file-input').click();
 $('file-input').onchange = e => { loadFiles([...e.target.files]); e.target.value = ''; };
 $('btn-url').onclick = () => { const u = $('url-input').value.trim(); if (u) loadURL(u); };
 $('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-url').click(); });
-$('btn-clear').onclick = () => { for (const s of [...scans.values()]) removeScan(s); fam.count = 0; fam.colors = []; fam.counts = []; syncFamilies(); };
+$('btn-clear').onclick = clearAll;
+$('stage-clear').onclick = () => { if (scans.size && confirm('Remove every scan?')) clearAll(); };
 $('giz-t').onclick = () => setGizmoMode('translate');
 $('giz-r').onclick = () => setGizmoMode('rotate');
 $('giz-s').onclick = () => setGizmoMode('scale');
@@ -2919,7 +3707,6 @@ $('btn-dup').onclick = () => {
 
 document.querySelectorAll('#color-tabs .tab').forEach(t => t.onclick = () => {
   if (t.dataset.color === 'family' && !fam.count) toast('No families yet — use 04 Find families');
-  if (['curvature', 'roughness', 'shape'].includes(t.dataset.color) && !visibleScans().some(s => s.hasGeo)) toast('Compute geometry first (05)');
   setColor(t.dataset.color);
 });
 document.querySelectorAll('#ramp-tabs .tab').forEach(t => t.onclick = () => {
@@ -2969,7 +3756,7 @@ setShape(params.shape);
 $('p-grid').onchange = e => { params.grid = e.target.checked; grid.visible = params.grid; };
 document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => frameAll(VIEWS[b.dataset.view]));
 
-for (const t of ['select', 'inspect', 'distance', 'height', 'wand']) $('tool-' + t).onclick = () => setTool(t);
+for (const t of ['select', 'inspect', 'distance', 'height', 'wand', 'focus']) $('tool-' + t).onclick = () => setTool(t === tool && t !== 'select' ? 'select' : t);
 document.querySelectorAll('#clip-tabs .tab').forEach(t => t.onclick = () => setClipMode(+t.dataset.clip));
 $('btn-box-edit').onclick = () => {
   editBox = !editBox;
@@ -2985,22 +3772,36 @@ $('btn-families').onclick = runFamilies;
 $('btn-fam-all').onclick = () => { fam.visible = fam.visible.map(() => true); syncFamilies(); };
 $('btn-fam-invert').onclick = () => { fam.visible = fam.visible.map(v => !v); syncFamilies(); };
 $('btn-split').onclick = splitFamilies;
-$('btn-fam-grow').onclick = () => morphFamilies('grow');
-$('btn-fam-shrink').onclick = () => morphFamilies('shrink');
-$('btn-fam-clean').onclick = () => morphFamilies('clean');
-$('btn-geo').onclick = computeGeometry;
-$('btn-shade').onclick = () => setShade(!params.shade);
 $('btn-cut').onclick = cutSelection;
 $('btn-sel-clear').onclick = clearSelection;
-$('btn-pieces').onclick = splitPieces;
-$('btn-sort').onclick = pixelSort;
-$('btn-unsort').onclick = restoreColours;
-$('btn-stipple').onclick = stipple;
-$('p-stipcol').onchange = e => params.stippleColour = e.target.checked;
-document.querySelectorAll('#sort-tabs .tab').forEach(t => t.onclick = () => {
-  params.sortKey = t.dataset.sortkey;
-  document.querySelectorAll('#sort-tabs .tab').forEach(x => x.classList.toggle('active', x === t));
-});
+$('btn-tex-on').onclick = () => setTextureOn(!texState.on);
+$('btn-tex-load').onclick = () => $('tex-input').click();
+$('tex-input').onchange = e => { if (e.target.files[0]) loadTextureImage(e.target.files[0]); e.target.value = ''; };
+$('btn-tex-bake').onclick = bakeTexture;
+$('btn-tex-cut').onclick = cutByTexture;
+$('btn-tex-restore').onclick = restoreColours;
+document.querySelectorAll('#texmap-tabs .tab').forEach(t => t.onclick = () => setTexMode(+t.dataset.texmode));
+document.querySelectorAll('#texblend-tabs .tab').forEach(t => t.onclick = () => setTexBlend(+t.dataset.texblend));
+$('lesson-prev').onclick = () => stepLesson(-1);
+$('lesson-next').onclick = () => stepLesson(1);
+$('lesson-show').onclick = toggleLesson;
+$('btn-points').onclick = () => setPointsVisible(!params.showPoints);
+$('btn-lines-clear').onclick = () => { for (const ls of [...lineSets]) removeLineSet(ls); toast('Lines cleared'); };
+$('btn-outline').onclick = drawOutlines;
+$('btn-contours').onclick = drawContours;
+$('btn-cont-preview').onclick = () => { params.contPreview = !params.contPreview; $('btn-cont-preview').classList.toggle('active', params.contPreview); };
+$('btn-section').onclick = drawSection;
+$('btn-sec-flip').onclick = () => { params.secFlip = !params.secFlip; $('btn-sec-flip').classList.toggle('active', params.secFlip); };
+$('btn-dxf').onclick = exportLinesDXF;
+$('p-borders').onchange = e => params.lineBorders = e.target.checked;
+$('p-edges').onchange = e => params.lineEdges = e.target.checked;
+$('p-through').onchange = e => { params.linesThrough = e.target.checked; lineMat.depthTest = !params.linesThrough; lineMat.needsUpdate = true; };
+document.querySelectorAll('#sec-tabs .tab').forEach(t => t.onclick = () => setSection(t.dataset.sec));
+document.querySelectorAll('#linecol-tabs .tab').forEach(t => t.onclick = () => setLineColour(t.dataset.linecol));
+$('btn-focus-auto').onclick = () => { focusPoint = null; updateFocusStats(); };
+$('btn-depth-preview').onclick = () => setColor(params.color === 'depth' ? 'rgb' : 'depth');
+$('btn-depth-cut').onclick = cutByDepth;
+document.querySelectorAll('#depth-tabs .tab').forEach(t => t.onclick = () => setDepthMode(t.dataset.depthmode));
 
 $('btn-ply').onclick = exportPLY;
 $('btn-png').onclick = screenshot;
@@ -3015,13 +3816,19 @@ const sliders = [
   ['p-edl',    'o-edl',    'edl',       v => v.toFixed(2)],
   ['p-turn',   'o-turn',   'turnSpeed', v => v.toFixed(1).replace('.0', '') + ' rpm'],
   ['p-k',      'o-k',      'k',         v => v.toFixed(0)],
-  ['p-radius', 'o-radius', 'radius',    v => v.toFixed(1).replace('.0', '') + '×'],
   ['p-tol',    'o-tol',    'tol',       v => v.toFixed(0)],
-  ['p-gap',    'o-gap',    'gap',       v => v.toFixed(1).replace('.0', '') + '×'],
-  ['p-minpts', 'o-minpts', 'minPts',    v => v.toFixed(0)],
-  ['p-strip',  'o-strip',  'strip',     v => v.toFixed(0) + '×'],
-  ['p-thresh', 'o-thresh', 'thresh',    v => v.toFixed(2)],
-  ['p-stipple','o-stipple','stipple',   v => v.toFixed(2)],
+  ['p-textile','o-textile','texTile',   v => v.toFixed(0) + '%'],
+  ['p-texstr', 'o-texstr', 'texStrength', v => v.toFixed(2)],
+  ['p-texthr', 'o-texthr', 'texThresh', v => v.toFixed(2)],
+  ['p-detail', 'o-detail', 'lineDetail', v => v.toFixed(0) + '×'],
+  ['p-tidy',   'o-tidy',   'lineTidy',  v => v.toFixed(0)],
+  ['p-contours','o-contours','contours', v => v.toFixed(0)],
+  ['p-secpos', 'o-secpos', 'secPos',    v => v.toFixed(v % 1 ? 1 : 0) + '%'],
+  ['p-linew',  'o-linew',  'lineWidth', v => v.toFixed(2).replace(/\.?0+$/, '')],
+  ['p-densvar','o-densvar','densVar',   v => (v > 0 ? '+' : '') + v.toFixed(2).replace(/\.?0+$/, '')],
+  ['p-dof',    'o-dof',    'dof',       v => v.toFixed(0) + '%'],
+  ['p-layers', 'o-layers', 'layers',    v => v.toFixed(0)],
+  ['p-blur',   'o-blur',   'blur',      v => v > 0 ? v.toFixed(2) : 'off'],
 ];
 for (const [id, outId, key, fmt, mul = 1] of sliders){
   const el = $(id), out = $(outId);
@@ -3050,6 +3857,8 @@ renderer.domElement.addEventListener('pointerup', e => {
     const hit = pick(e.clientX, e.clientY);
     select(hit ? hit.scan : null);
   } else if (tool === 'wand') wandClick(e);
+  else if (tool === 'focus'){ focusClick(e); setTool('select'); }
+  else if (tool === 'neighbours') neighbourClick(e);
   else measureClick(e);
 });
 
@@ -3075,6 +3884,7 @@ addEventListener('keydown', e => {
   else if (k === 'm') setTool('distance');
   else if (k === 'h') setTool('height');
   else if (k === 'f') frameAll();
+  else if (k === 'p') setPointsVisible(!params.showPoints);
   else if (k === ' ' && e.target.tagName !== 'BUTTON'){ e.preventDefault(); setTurntable(!orbit.autoRotate); }
   else if (k === 'escape'){ if (pending) clearPending(); editBox = false; clipBox.visible = shared.uClipMode.value > 0; setTool('select'); select(null); }
   else if ((k === 'delete' || k === 'backspace') && selected) removeScan(selected);
@@ -3093,7 +3903,7 @@ function animate(now){
   fly(dt);
   orbit.update(dt);
   renderFrame();
-  if ((statsTimer += dt) > 0.25){ statsTimer = 0; refreshStats(); }
+  if ((statsTimer += dt) > 0.25){ statsTimer = 0; refreshStats(); updateFocusStats(); }
 }
 
 function renderFrame(){
@@ -3101,7 +3911,10 @@ function renderFrame(){
   syncUniforms();
   const bg = params.background === 'night' ? 0x111214 : 0xffffff;
   renderer.setClearColor(bg, 1);
-  if (params.edl > 0){
+  if (!params.showPoints){
+    renderer.setRenderTarget(null);
+    renderer.clear();
+  } else if (params.edl > 0 || params.blur > 0){
     renderer.setRenderTarget(rt);
     renderer.clear();
     renderer.render(cloudScene, camera);
@@ -3113,6 +3926,8 @@ function renderFrame(){
     renderer.clear();
     renderer.render(cloudScene, camera);
   }
+  updateNodeBoxes();
+  updateLineSets();
   renderer.render(overlay, camera);
   updateLabels();
 }
@@ -3120,7 +3935,10 @@ function renderFrame(){
 // console access, e.g. points.loadPreset('terrain'); points.render()
 window.points = { scans, params, camera, orbit, renderer, loadPreset, loadURL, frameAll, pick, runFamilies,
   splitFamilies, exportPLY, render: renderFrame, setColor, setClipMode, fam,
-  computeGeometry, splitPieces, morphFamilies, pixelSort, restoreColours, stipple, cutSelection, setShade, jobs };
+  restoreColours, cutSelection, useTexture, setTextureOn, setTexMode, setTexBlend, bakeTexture, cutByTexture,
+  LESSONS, stepLesson, toggleLesson, drawOutlines, drawContours, drawSection, setSection, setPointsVisible,
+  setLineColour, exportLinesDXF, lineSets, cutByDepth, setDepthMode, clearAll, jobs,
+  setFocus: p => { focusPoint = p; updateFocusStats(); } };
 
 resize();
 syncSliders();
@@ -3130,6 +3948,8 @@ const q = new URLSearchParams(location.search);
 if (q.get('url')) loadURL(q.get('url'));
 else loadPreset(q.get('preset') || 'courtyard');
 requestAnimationFrame(animate);
+setTimeout(buildTexturePalette, 50);
+renderLesson();
 </script>
 </body>
 </html>
