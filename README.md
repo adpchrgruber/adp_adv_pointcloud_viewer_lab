@@ -1,6 +1,6 @@
 # Scan Matter — a Point-Cloud Workbench
 
-**[Open the live workbench →](https://adpchrgruber.github.io/adp_adv_point_lab/)**
+**[Open the live workbench →]([https://adpchrgruber.github.io/adp_adv_point_lab/](https://adpchrgruber.github.io/adp_adv_pointcloud_viewer_lab/))**
 
 ![A courtyard scan, a vessel drawn in brush-stroke points, and vessels cut into colour fragments](docs/preview.png)
 
